@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ScoreGauge } from '@/components/ui/score-gauge';
 import { useLearning } from '@/contexts/LearningContext';
-import { getQuestionsByModuleId, QuizQuestion } from '@/lib/content-data';
+import { getQuestionsByModuleId } from '@/lib/content-data';
 import { getRuleBasedRecommendation, getMLBasedRecommendation } from '@/lib/recommendation-engine';
 import { addSession } from '@/lib/session-store';
 import { cn } from '@/lib/utils';
@@ -17,10 +17,12 @@ import {
   Settings2,
   TrendingUp,
   TrendingDown,
-  Minus
+  Minus,
+  Loader2
 } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
+import { toast } from 'sonner';
 
 export default function Quiz() {
   const navigate = useNavigate();
@@ -39,6 +41,7 @@ export default function Quiz() {
 
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleAnswerChange = (questionId: string, answer: string) => {
     setAnswers(prev => ({ ...prev, [questionId]: answer }));
@@ -54,7 +57,8 @@ export default function Quiz() {
     return Math.round((correct / questions.length) * 100);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
     const score = calculateScore();
     setQuizScore(score);
     
@@ -66,8 +70,8 @@ export default function Quiz() {
     
     setRecommendation(recommendation);
 
-    // Save session
-    addSession({
+    // Save session to database
+    const result = await addSession({
       studentId: state.studentId,
       moduleId: state.currentModule?.id || '',
       moduleTitle: state.currentModule?.title || '',
@@ -76,6 +80,13 @@ export default function Quiz() {
       recommendation: recommendation.type,
     });
 
+    if (result) {
+      toast.success('Session saved successfully!');
+    } else {
+      toast.error('Failed to save session');
+    }
+
+    setIsSubmitting(false);
     setSubmitted(true);
   };
 
@@ -205,11 +216,20 @@ export default function Quiz() {
                   variant="hero"
                   size="xl"
                   onClick={handleSubmit}
-                  disabled={Object.keys(answers).length < questions.length}
+                  disabled={Object.keys(answers).length < questions.length || isSubmitting}
                   className="flex items-center gap-2"
                 >
-                  Submit Quiz
-                  <ArrowRight className="w-5 h-5" />
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      Submit Quiz
+                      <ArrowRight className="w-5 h-5" />
+                    </>
+                  )}
                 </Button>
               </div>
             </div>
