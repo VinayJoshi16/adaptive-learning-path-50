@@ -5,6 +5,7 @@ import { RecommendationType } from './recommendation-engine';
 export interface LearningSession {
   id: string;
   studentId: string;
+  userId?: string;
   moduleId: string;
   moduleTitle: string;
   engagementScore: number;
@@ -13,11 +14,18 @@ export interface LearningSession {
   timestamp: string;
 }
 
-// Fetch all sessions from database
+// Fetch all sessions for current authenticated user
 export async function getSessions(): Promise<LearningSession[]> {
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    return [];
+  }
+
   const { data, error } = await supabase
     .from('learning_sessions')
     .select('*')
+    .eq('user_id', user.id)
     .order('created_at', { ascending: true });
 
   if (error) {
@@ -28,6 +36,7 @@ export async function getSessions(): Promise<LearningSession[]> {
   return (data || []).map(row => ({
     id: row.id,
     studentId: row.student_id,
+    userId: row.user_id,
     moduleId: row.module_id,
     moduleTitle: row.module_title,
     engagementScore: row.engagement_score,
@@ -37,37 +46,25 @@ export async function getSessions(): Promise<LearningSession[]> {
   }));
 }
 
-// Fetch sessions for a specific student
+// Fetch sessions for current user (same as getSessions for authenticated users)
 export async function getSessionsByStudent(studentId: string): Promise<LearningSession[]> {
-  const { data, error } = await supabase
-    .from('learning_sessions')
-    .select('*')
-    .eq('student_id', studentId)
-    .order('created_at', { ascending: true });
-
-  if (error) {
-    console.error('Error fetching sessions:', error);
-    return [];
-  }
-
-  return (data || []).map(row => ({
-    id: row.id,
-    studentId: row.student_id,
-    moduleId: row.module_id,
-    moduleTitle: row.module_title,
-    engagementScore: row.engagement_score,
-    quizScore: row.quiz_score,
-    recommendation: row.recommendation as RecommendationType,
-    timestamp: row.created_at,
-  }));
+  return getSessions();
 }
 
 // Add a new session to database
-export async function addSession(session: Omit<LearningSession, 'id' | 'timestamp'>): Promise<LearningSession | null> {
+export async function addSession(session: Omit<LearningSession, 'id' | 'timestamp' | 'userId'>): Promise<LearningSession | null> {
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    console.error('User not authenticated');
+    return null;
+  }
+
   const { data, error } = await supabase
     .from('learning_sessions')
     .insert({
       student_id: session.studentId,
+      user_id: user.id,
       module_id: session.moduleId,
       module_title: session.moduleTitle,
       engagement_score: session.engagementScore,
@@ -85,6 +82,7 @@ export async function addSession(session: Omit<LearningSession, 'id' | 'timestam
   return {
     id: data.id,
     studentId: data.student_id,
+    userId: data.user_id,
     moduleId: data.module_id,
     moduleTitle: data.module_title,
     engagementScore: data.engagement_score,
@@ -94,24 +92,23 @@ export async function addSession(session: Omit<LearningSession, 'id' | 'timestam
   };
 }
 
-// Clear all sessions for a student
+// Clear all sessions for current user
 export async function clearSessions(studentId?: string): Promise<void> {
-  if (studentId) {
-    await supabase
-      .from('learning_sessions')
-      .delete()
-      .eq('student_id', studentId);
-  } else {
-    await supabase
-      .from('learning_sessions')
-      .delete()
-      .neq('id', ''); // Delete all rows
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    return;
   }
+
+  await supabase
+    .from('learning_sessions')
+    .delete()
+    .eq('user_id', user.id);
 }
 
-// Get session statistics for a student
+// Get session statistics for current user
 export async function getSessionStats(studentId: string) {
-  const sessions = await getSessionsByStudent(studentId);
+  const sessions = await getSessions();
   
   if (sessions.length === 0) {
     return {
