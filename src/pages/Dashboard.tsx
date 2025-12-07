@@ -1,7 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { getSessions, getSessionsByStudent, getSessionStats, clearSessions, LearningSession } from '@/lib/session-store';
+import { getSessionsByStudent, getSessionStats, clearSessions, LearningSession } from '@/lib/session-store';
 import { useLearning } from '@/contexts/LearningContext';
 import { cn } from '@/lib/utils';
 import { 
@@ -12,7 +12,8 @@ import {
   User,
   Calendar,
   Trash2,
-  RefreshCw
+  RefreshCw,
+  Loader2
 } from 'lucide-react';
 import {
   LineChart,
@@ -29,46 +30,74 @@ import {
   Cell,
   Legend
 } from 'recharts';
+import { toast } from 'sonner';
+
+interface SessionStats {
+  totalSessions: number;
+  avgEngagement: number;
+  avgQuizScore: number;
+  remedialCount: number;
+  repeatCount: number;
+  advancedCount: number;
+}
 
 export default function Dashboard() {
   const { state, setStudentId } = useLearning();
   const [inputId, setInputId] = useState(state.studentId);
-  const [refreshKey, setRefreshKey] = useState(0);
+  const [sessions, setSessions] = useState<LearningSession[]>([]);
+  const [stats, setStats] = useState<SessionStats>({
+    totalSessions: 0,
+    avgEngagement: 0,
+    avgQuizScore: 0,
+    remedialCount: 0,
+    repeatCount: 0,
+    advancedCount: 0,
+  });
+  const [isLoading, setIsLoading] = useState(true);
 
-  const sessions = useMemo(() => {
-    return getSessionsByStudent(state.studentId);
-  }, [state.studentId, refreshKey]);
+  const loadData = useCallback(async (studentId: string) => {
+    setIsLoading(true);
+    const [sessionsData, statsData] = await Promise.all([
+      getSessionsByStudent(studentId),
+      getSessionStats(studentId),
+    ]);
+    setSessions(sessionsData);
+    setStats(statsData);
+    setIsLoading(false);
+  }, []);
 
-  const stats = useMemo(() => {
-    return getSessionStats(state.studentId);
-  }, [state.studentId, refreshKey]);
+  useEffect(() => {
+    loadData(state.studentId);
+  }, [state.studentId, loadData]);
 
-  const chartData = useMemo(() => {
-    return sessions.map((s, index) => ({
-      session: `S${index + 1}`,
-      engagement: s.engagementScore,
-      quiz: s.quizScore,
-      module: s.moduleTitle,
-    }));
-  }, [sessions]);
+  const chartData = sessions.map((s, index) => ({
+    session: `S${index + 1}`,
+    engagement: s.engagementScore,
+    quiz: s.quizScore,
+    module: s.moduleTitle,
+  }));
 
-  const pieData = useMemo(() => {
-    return [
-      { name: 'Advanced', value: stats.advancedCount, color: 'hsl(var(--success))' },
-      { name: 'Repeat', value: stats.repeatCount, color: 'hsl(var(--warning))' },
-      { name: 'Remedial', value: stats.remedialCount, color: 'hsl(var(--destructive))' },
-    ].filter(d => d.value > 0);
-  }, [stats]);
+  const pieData = [
+    { name: 'Advanced', value: stats.advancedCount, color: 'hsl(var(--success))' },
+    { name: 'Repeat', value: stats.repeatCount, color: 'hsl(var(--warning))' },
+    { name: 'Remedial', value: stats.remedialCount, color: 'hsl(var(--destructive))' },
+  ].filter(d => d.value > 0);
 
   const handleStudentChange = () => {
     setStudentId(inputId);
   };
 
-  const handleClearData = () => {
-    if (confirm('Are you sure you want to clear all session data?')) {
-      clearSessions();
-      setRefreshKey(prev => prev + 1);
+  const handleClearData = async () => {
+    if (confirm('Are you sure you want to clear all session data for this student?')) {
+      await clearSessions(state.studentId);
+      toast.success('Sessions cleared');
+      loadData(state.studentId);
     }
+  };
+
+  const handleRefresh = () => {
+    loadData(state.studentId);
+    toast.success('Data refreshed');
   };
 
   return (
@@ -103,9 +132,14 @@ export default function Dashboard() {
               <Button 
                 variant="outline" 
                 size="icon"
-                onClick={() => setRefreshKey(prev => prev + 1)}
+                onClick={handleRefresh}
+                disabled={isLoading}
               >
-                <RefreshCw className="w-4 h-4" />
+                {isLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-4 h-4" />
+                )}
               </Button>
               <Button 
                 variant="outline" 
@@ -123,30 +157,35 @@ export default function Dashboard() {
             <div className="bg-card rounded-xl border border-border shadow-soft p-6">
               <p className="text-sm text-muted-foreground mb-1">Total Sessions</p>
               <p className="font-display text-3xl font-bold text-foreground">
-                {stats.totalSessions}
+                {isLoading ? '-' : stats.totalSessions}
               </p>
             </div>
             <div className="bg-card rounded-xl border border-border shadow-soft p-6">
               <p className="text-sm text-muted-foreground mb-1">Avg Engagement</p>
               <p className="font-display text-3xl font-bold text-primary">
-                {stats.avgEngagement}%
+                {isLoading ? '-' : `${stats.avgEngagement}%`}
               </p>
             </div>
             <div className="bg-card rounded-xl border border-border shadow-soft p-6">
               <p className="text-sm text-muted-foreground mb-1">Avg Quiz Score</p>
               <p className="font-display text-3xl font-bold text-accent">
-                {stats.avgQuizScore}%
+                {isLoading ? '-' : `${stats.avgQuizScore}%`}
               </p>
             </div>
             <div className="bg-card rounded-xl border border-border shadow-soft p-6">
               <p className="text-sm text-muted-foreground mb-1">Advanced Recs</p>
               <p className="font-display text-3xl font-bold text-success">
-                {stats.advancedCount}
+                {isLoading ? '-' : stats.advancedCount}
               </p>
             </div>
           </div>
 
-          {sessions.length === 0 ? (
+          {isLoading ? (
+            <div className="bg-card rounded-xl border border-border shadow-soft p-12 text-center">
+              <Loader2 className="w-12 h-12 text-primary mx-auto mb-4 animate-spin" />
+              <p className="text-muted-foreground">Loading sessions...</p>
+            </div>
+          ) : sessions.length === 0 ? (
             <div className="bg-card rounded-xl border border-border shadow-soft p-12 text-center">
               <BarChart3 className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
               <h2 className="font-display text-xl font-bold text-foreground mb-2">
