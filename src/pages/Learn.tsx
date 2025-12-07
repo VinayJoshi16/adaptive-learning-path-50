@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ModuleCard } from '@/components/ui/module-card';
 import { ScoreGauge } from '@/components/ui/score-gauge';
+import { FaceLandmarkOverlay } from '@/components/FaceLandmarkOverlay';
 import { modules } from '@/lib/content-data';
 import { useLearning } from '@/contexts/LearningContext';
 import { useEngagementTracker } from '@/hooks/use-engagement-tracker';
@@ -14,7 +15,8 @@ import {
   EyeOff,
   Camera,
   AlertCircle,
-  CheckCircle
+  CheckCircle,
+  Loader2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -156,6 +158,41 @@ export default function Learn() {
 
               {/* Engagement Sidebar */}
               <div className="space-y-6">
+                {/* Webcam Feed with Overlay */}
+                <div className="bg-card rounded-xl border border-border shadow-soft p-4">
+                  <h3 className="font-display font-semibold text-foreground mb-3 flex items-center gap-2">
+                    <Camera className="w-5 h-5 text-primary" />
+                    Live Camera Feed
+                  </h3>
+                  
+                  {!engagementState.modelLoaded && engagementState.isTracking && (
+                    <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground p-4">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Loading face detection model...
+                    </div>
+                  )}
+                  
+                  {/* Hidden video element for processing */}
+                  <video 
+                    ref={videoRef} 
+                    width={320} 
+                    height={240} 
+                    muted 
+                    playsInline
+                    className="hidden"
+                  />
+                  <canvas ref={canvasRef} width={320} height={240} className="hidden" />
+                  
+                  {/* Visual overlay */}
+                  <FaceLandmarkOverlay
+                    videoRef={videoRef}
+                    isTracking={engagementState.isTracking}
+                    faceDetected={engagementState.faceDetected}
+                    attentionState={engagementState.attentionState}
+                    className="w-full"
+                  />
+                </div>
+
                 {/* Engagement Score Card */}
                 <div className="bg-card rounded-xl border border-border shadow-soft p-6">
                   <h3 className="font-display font-semibold text-lg text-foreground mb-4 flex items-center gap-2">
@@ -214,12 +251,6 @@ export default function Learn() {
                       </span>
                     </div>
                   </div>
-                </div>
-
-                {/* Webcam Preview (hidden canvas for processing) */}
-                <div className="hidden">
-                  <video ref={videoRef} width={320} height={240} muted />
-                  <canvas ref={canvasRef} width={320} height={240} />
                 </div>
 
                 {/* Tips Card */}
