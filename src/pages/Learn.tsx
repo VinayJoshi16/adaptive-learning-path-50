@@ -27,11 +27,18 @@ export default function Learn() {
   const moduleTopics = useMemo(() => state.currentModule?.topics || [], [state.currentModule]);
   
   const { 
-    showIntervention, interventionQuestions, closeIntervention, handleInterventionComplete 
+    showIntervention, 
+    interventionQuestions, 
+    closeIntervention, 
+    handleInterventionComplete,
+    faceVerified,
+    isLearningBlocked,
+    interventionCompleted
   } = useEngagementIntervention(
     engagementState.currentScore,
     engagementState.isTracking,
-    moduleTopics
+    moduleTopics,
+    engagementState.faceDetected
   );
 
   const isModuleUnlocked = (moduleOrder: number): boolean => {
@@ -151,9 +158,15 @@ export default function Learn() {
                       <Camera className="w-4 h-4" />
                       <span>Engagement tracking active</span>
                     </div>
-                    <Button variant="accent" size="lg" onClick={handleFinishLearning} className="flex items-center gap-2">
+                    <Button 
+                      variant="accent" 
+                      size="lg" 
+                      onClick={handleFinishLearning} 
+                      className="flex items-center gap-2"
+                      disabled={isLearningBlocked}
+                    >
                       <Square className="w-4 h-4" />
-                      Finish & Take Quiz
+                      {isLearningBlocked ? 'Complete Quiz First' : 'Finish & Take Quiz'}
                     </Button>
                   </div>
                 </div>
@@ -203,6 +216,16 @@ export default function Learn() {
                     </div>
                     <div className={cn(
                       "flex items-center justify-between p-3 rounded-lg transition-colors",
+                      faceVerified ? "bg-success/10 text-success" : "bg-warning/10 text-warning"
+                    )}>
+                      <div className="flex items-center gap-2">
+                        {faceVerified ? <CheckCircle className="w-4 h-4" /> : <Loader2 className="w-4 h-4 animate-spin" />}
+                        <span className="text-sm font-medium">Face Verified</span>
+                      </div>
+                      <span className="text-xs">{faceVerified ? 'Verified' : 'Verifying...'}</span>
+                    </div>
+                    <div className={cn(
+                      "flex items-center justify-between p-3 rounded-lg transition-colors",
                       engagementState.attentionState === 'attentive' ? "bg-success/10 text-success" :
                       engagementState.attentionState === 'distracted' ? "bg-warning/10 text-warning" : "bg-muted text-muted-foreground"
                     )}>
@@ -212,6 +235,14 @@ export default function Learn() {
                       </div>
                       <span className="text-xs capitalize">{engagementState.attentionState}</span>
                     </div>
+                    {isLearningBlocked && (
+                      <div className="p-3 rounded-lg bg-destructive/10 text-destructive">
+                        <div className="flex items-center gap-2">
+                          <AlertCircle className="w-4 h-4" />
+                          <span className="text-sm font-medium">Complete the intervention quiz to continue</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

@@ -38,10 +38,12 @@ export function EngagementIntervention({
     const finalScore = Math.round((correct / questions.length) * 100);
     setScore(finalScore);
     setSubmitted(true);
+    onComplete(finalScore);
   };
 
   const handleClose = () => {
-    onComplete(score);
+    // Only allow closing after submission
+    if (!submitted) return;
     setAnswers({});
     setSubmitted(false);
     setScore(0);
@@ -51,7 +53,7 @@ export function EngagementIntervention({
   const allAnswered = Object.keys(answers).length === questions.length;
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen && submitted) handleClose(); }}>
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center gap-2 mb-2">
