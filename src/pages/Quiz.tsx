@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ScoreGauge } from '@/components/ui/score-gauge';
 import { useLearning } from '@/contexts/LearningContext';
-import { getQuestionsByModuleId } from '@/lib/content-data';
-import { getRuleBasedRecommendation, getMLBasedRecommendation } from '@/lib/recommendation-engine';
+import { useModuleProgress } from '@/contexts/ModuleProgressContext';
+import { getQuestionsByModuleId, getModuleByOrder } from '@/lib/content-data';
+import { getRuleBasedRecommendation, getMLBasedRecommendation, PASSING_SCORE } from '@/lib/recommendation-engine';
 import { addSession } from '@/lib/session-store';
 import { cn } from '@/lib/utils';
 import { 
@@ -18,7 +19,9 @@ import {
   TrendingUp,
   TrendingDown,
   Minus,
-  Loader2
+  Loader2,
+  Lock,
+  Unlock
 } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
@@ -33,6 +36,7 @@ export default function Quiz() {
     setRecommendationEngine,
     resetSession 
   } = useLearning();
+  const { recordQuizResult, getModuleProgress } = useModuleProgress();
 
   const questions = useMemo(() => {
     if (!state.currentModule) return [];
@@ -42,6 +46,9 @@ export default function Quiz() {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const passed = state.quizScore >= PASSING_SCORE;
+  const nextModule = state.currentModule ? getModuleByOrder(state.currentModule.order + 1) : null;
 
   const handleAnswerChange = (questionId: string, answer: string) => {
     setAnswers(prev => ({ ...prev, [questionId]: answer }));
@@ -62,6 +69,11 @@ export default function Quiz() {
     const score = calculateScore();
     setQuizScore(score);
     
+    // Record in progress tracker
+    if (state.currentModule) {
+      recordQuizResult(state.currentModule.id, score);
+    }
+    
     // Get recommendation based on selected engine
     const currentLevel = state.currentModule?.level || 'beginner';
     const recommendation = state.recommendationEngine === 'ml'
@@ -81,7 +93,8 @@ export default function Quiz() {
     });
 
     if (result) {
-      toast.success('Session saved successfully!');
+      const isPassing = score >= PASSING_SCORE;
+      toast.success(isPassing ? 'Quiz passed! Next module unlocked!' : 'Session saved. Try again to unlock next module.');
     } else {
       toast.error('Failed to save session');
     }
@@ -236,13 +249,42 @@ export default function Quiz() {
           ) : (
             // Results View
             <div className="animate-scale-in">
-              <div className="text-center mb-8">
+              {/* Pass/Fail Status Banner */}
+              <div className={cn(
+                "rounded-xl border-2 p-6 mb-8 text-center",
+                passed 
+                  ? "border-success bg-success/10" 
+                  : "border-destructive bg-destructive/10"
+              )}>
+                <div className={cn(
+                  "w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4",
+                  passed ? "bg-success" : "bg-destructive"
+                )}>
+                  {passed ? (
+                    <Unlock className="w-8 h-8 text-success-foreground" />
+                  ) : (
+                    <Lock className="w-8 h-8 text-destructive-foreground" />
+                  )}
+                </div>
                 <h1 className="font-display text-3xl font-bold text-foreground mb-2">
-                  Session Complete!
+                  {passed ? 'Quiz Passed!' : 'Quiz Not Passed'}
                 </h1>
-                <p className="text-muted-foreground">
-                  Here are your results and personalized recommendation.
+                <p className={cn(
+                  "text-lg font-medium",
+                  passed ? "text-success" : "text-destructive"
+                )}>
+                  {passed 
+                    ? nextModule 
+                      ? `Congratulations! "${nextModule.title}" is now unlocked!`
+                      : "Amazing! You've completed all available modules!"
+                    : `You need ${PASSING_SCORE}% to pass. You scored ${state.quizScore}%.`
+                  }
                 </p>
+                {!passed && (
+                  <p className="text-muted-foreground mt-2">
+                    Review the material and try again to unlock the next module.
+                  </p>
+                )}
               </div>
 
               {/* Scores */}
@@ -254,12 +296,21 @@ export default function Quiz() {
                     size="lg"
                   />
                 </div>
-                <div className="bg-card rounded-xl border border-border shadow-soft p-6 flex flex-col items-center">
+                <div className={cn(
+                  "bg-card rounded-xl border shadow-soft p-6 flex flex-col items-center",
+                  passed ? "border-success" : "border-destructive"
+                )}>
                   <ScoreGauge 
                     score={state.quizScore} 
                     label="Quiz Score"
                     size="lg"
                   />
+                  <p className={cn(
+                    "text-sm font-medium mt-2",
+                    passed ? "text-success" : "text-destructive"
+                  )}>
+                    {passed ? 'PASSED' : 'NOT PASSED'} (min: {PASSING_SCORE}%)
+                  </p>
                 </div>
               </div>
 
