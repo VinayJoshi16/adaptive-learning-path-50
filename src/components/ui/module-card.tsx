@@ -1,15 +1,17 @@
 import { Module } from '@/lib/content-data';
 import { cn } from '@/lib/utils';
-import { Clock, GraduationCap } from 'lucide-react';
+import { Clock, GraduationCap, CheckCircle } from 'lucide-react';
 import { Button } from './button';
 
 interface ModuleCardProps {
   module: Module;
   onSelect: (moduleId: string) => void;
   selected?: boolean;
+  completed?: boolean;
+  bestScore?: number;
 }
 
-export function ModuleCard({ module, onSelect, selected }: ModuleCardProps) {
+export function ModuleCard({ module, onSelect, selected, completed, bestScore }: ModuleCardProps) {
   const levelConfig = {
     beginner: { 
       label: 'Beginner', 
@@ -39,10 +41,18 @@ export function ModuleCard({ module, onSelect, selected }: ModuleCardProps) {
         "group relative bg-card rounded-xl border p-6 transition-all duration-300 hover:shadow-elevated cursor-pointer",
         selected 
           ? "border-primary shadow-glow ring-2 ring-primary/20" 
-          : "border-border hover:border-primary/50"
+          : "border-border hover:border-primary/50",
+        completed && "ring-1 ring-success/30"
       )}
       onClick={() => onSelect(module.id)}
     >
+      {/* Completed Badge */}
+      {completed && (
+        <div className="absolute top-4 left-4">
+          <CheckCircle className="w-5 h-5 text-success" />
+        </div>
+      )}
+
       {/* Level Badge */}
       <div className={cn(
         "absolute top-4 right-4 px-3 py-1 rounded-full text-xs font-medium border",
@@ -72,16 +82,21 @@ export function ModuleCard({ module, onSelect, selected }: ModuleCardProps) {
           <Clock className="w-4 h-4" />
           <span>{module.duration} min</span>
         </div>
-        <Button 
-          variant={selected ? "default" : "outline"} 
-          size="sm"
-          onClick={(e) => {
-            e.stopPropagation();
-            onSelect(module.id);
-          }}
-        >
-          {selected ? 'Selected' : 'Select'}
-        </Button>
+        <div className="flex items-center gap-2">
+          {bestScore !== undefined && (
+            <span className="text-xs text-muted-foreground">Best: {bestScore}%</span>
+          )}
+          <Button 
+            variant={selected ? "default" : "outline"} 
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelect(module.id);
+            }}
+          >
+            {selected ? 'Selected' : 'Select'}
+          </Button>
+        </div>
       </div>
     </div>
   );
