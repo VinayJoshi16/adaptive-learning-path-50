@@ -5,6 +5,7 @@ const ENGAGEMENT_DROP_THRESHOLD = 65;
 const CHECK_INTERVAL_MS = 5000;
 const MIN_TRACKING_TIME_MS = 10000;
 const COOLDOWN_MS = 60000;
+const MIN_FACE_DETECTION_TIME_MS = 3000;
 
 interface EngagementHistory {
   timestamp: number;
@@ -15,15 +16,38 @@ interface EngagementHistory {
 export function useEngagementIntervention(
   currentEngagementScore: number,
   isTracking: boolean,
-  moduleTopics: string[] = []
+  moduleTopics: string[] = [],
+  faceDetected: boolean = false
 ) {
   const [showIntervention, setShowIntervention] = useState(false);
   const [interventionQuestions, setInterventionQuestions] = useState<QuizQuestion[]>([]);
+  const [interventionCompleted, setInterventionCompleted] = useState(false);
+  const [faceVerified, setFaceVerified] = useState(false);
   
   const historyRef = useRef<EngagementHistory[]>([]);
   const lastInterventionRef = useRef<number>(0);
   const startTimeRef = useRef<number>(0);
   const checkIntervalRef = useRef<number | null>(null);
+  const faceDetectionStartRef = useRef<number>(0);
+
+  // Track face detection - require stable detection for MIN_FACE_DETECTION_TIME_MS
+  useEffect(() => {
+    if (!isTracking) {
+      setFaceVerified(false);
+      faceDetectionStartRef.current = 0;
+      return;
+    }
+
+    if (faceDetected) {
+      if (faceDetectionStartRef.current === 0) {
+        faceDetectionStartRef.current = Date.now();
+      } else if (Date.now() - faceDetectionStartRef.current >= MIN_FACE_DETECTION_TIME_MS) {
+        setFaceVerified(true);
+      }
+    } else {
+      faceDetectionStartRef.current = 0;
+    }
+  }, [faceDetected, isTracking]);
 
   useEffect(() => {
     if (!isTracking) {
@@ -47,7 +71,7 @@ export function useEngagementIntervention(
   }, [currentEngagementScore, isTracking, moduleTopics]);
 
   const checkEngagement = useCallback(() => {
-    if (!isTracking) return;
+    if (!isTracking || !faceVerified) return;
     
     const now = Date.now();
     const timeSinceStart = now - startTimeRef.current;
@@ -67,13 +91,14 @@ export function useEngagementIntervention(
       if (questions.length > 0) {
         setInterventionQuestions(questions);
         setShowIntervention(true);
+        setInterventionCompleted(false);
         lastInterventionRef.current = now;
       }
     }
-  }, [currentEngagementScore, isTracking, moduleTopics]);
+  }, [currentEngagementScore, isTracking, moduleTopics, faceVerified]);
 
   useEffect(() => {
-    if (isTracking) {
+    if (isTracking && faceVerified) {
       checkIntervalRef.current = window.setInterval(checkEngagement, CHECK_INTERVAL_MS);
     }
     return () => {
@@ -81,17 +106,30 @@ export function useEngagementIntervention(
         clearInterval(checkIntervalRef.current);
       }
     };
-  }, [isTracking, checkEngagement]);
+  }, [isTracking, checkEngagement, faceVerified]);
 
-  const closeIntervention = useCallback(() => setShowIntervention(false), []);
+  const closeIntervention = useCallback(() => {
+    // Only allow closing if intervention is completed
+    if (interventionCompleted) {
+      setShowIntervention(false);
+    }
+  }, [interventionCompleted]);
+
   const handleInterventionComplete = useCallback((score: number) => {
     console.log('Intervention completed with score:', score);
+    setInterventionCompleted(true);
   }, []);
+
+  // Check if learning should be blocked (intervention active and not completed)
+  const isLearningBlocked = showIntervention && !interventionCompleted;
 
   return {
     showIntervention,
     interventionQuestions,
     closeIntervention,
     handleInterventionComplete,
+    faceVerified,
+    isLearningBlocked,
+    interventionCompleted,
   };
 }
