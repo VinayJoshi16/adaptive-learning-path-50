@@ -201,8 +201,23 @@ export default function Learn() {
                     Live Engagement
                   </h3>
                   <div className="flex justify-center mb-6">
-                    <ScoreGauge score={engagementState.currentScore} label="Engagement Score" size="lg" animate />
+                    <ScoreGauge 
+                      score={engagementState.currentScore} 
+                      label="Engagement Score" 
+                      size="lg" 
+                      animate 
+                      threshold={65}
+                      showThreshold
+                    />
                   </div>
+                  {engagementState.currentScore <= 70 && engagementState.currentScore > 65 && faceVerified && (
+                    <div className="mb-4 p-3 rounded-lg bg-warning/10 border border-warning/20 text-warning">
+                      <div className="flex items-center gap-2 text-sm font-medium">
+                        <AlertCircle className="w-4 h-4" />
+                        <span>Engagement dropping! Stay focused to avoid a quiz popup.</span>
+                      </div>
+                    </div>
+                  )}
                   <div className="space-y-3">
                     <div className={cn(
                       "flex items-center justify-between p-3 rounded-lg transition-colors",
