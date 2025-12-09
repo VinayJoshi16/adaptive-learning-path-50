@@ -94,7 +94,7 @@ export function useEngagementIntervention(
     if (timeSinceStart < MIN_TRACKING_TIME_MS) return;
     if (lastInterventionRef.current > 0 && timeSinceLastIntervention < COOLDOWN_MS) return;
     
-    if (currentEngagementScore < ENGAGEMENT_DROP_THRESHOLD) {
+    if (currentEngagementScore <= ENGAGEMENT_DROP_THRESHOLD) {
       const highEngagementHistory = historyRef.current.filter(h => h.score >= 70);
       const topics = new Set<string>();
       highEngagementHistory.forEach(h => h.topics.forEach(t => topics.add(t)));
