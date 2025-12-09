@@ -38,15 +38,29 @@ export function useEngagementIntervention(
       return;
     }
 
+    let intervalId: number | null = null;
+
     if (faceDetected) {
       if (faceDetectionStartRef.current === 0) {
         faceDetectionStartRef.current = Date.now();
-      } else if (Date.now() - faceDetectionStartRef.current >= MIN_FACE_DETECTION_TIME_MS) {
-        setFaceVerified(true);
       }
+      
+      // Check every 500ms if we've reached the verification threshold
+      intervalId = window.setInterval(() => {
+        if (faceDetectionStartRef.current > 0 && 
+            Date.now() - faceDetectionStartRef.current >= MIN_FACE_DETECTION_TIME_MS) {
+          setFaceVerified(true);
+          if (intervalId) clearInterval(intervalId);
+        }
+      }, 500);
     } else {
       faceDetectionStartRef.current = 0;
+      setFaceVerified(false);
     }
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
   }, [faceDetected, isTracking]);
 
   useEffect(() => {
