@@ -58,6 +58,42 @@ export type Database = {
           },
         ]
       }
+      module_progress: {
+        Row: {
+          attempts: number
+          best_score: number
+          completed: boolean
+          created_at: string
+          id: string
+          module_id: string
+          passed: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          best_score?: number
+          completed?: boolean
+          created_at?: string
+          id?: string
+          module_id: string
+          passed?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          best_score?: number
+          completed?: boolean
+          created_at?: string
+          id?: string
+          module_id?: string
+          passed?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
