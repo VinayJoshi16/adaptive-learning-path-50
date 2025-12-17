@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import { GraduationCap, Mail, Lock, User } from 'lucide-react';
+import { GraduationCap, Mail, Lock, User, RefreshCw } from 'lucide-react';
 
 const emailSchema = z.string().email('Please enter a valid email address');
 const passwordSchema = z.string().min(6, 'Password must be at least 6 characters');
@@ -237,6 +237,24 @@ export default function Auth() {
             </CardContent>
           </Tabs>
         </Card>
+
+        <div className="mt-6 text-center">
+          <p className="text-sm text-muted-foreground mb-2">Having trouble logging in?</p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              localStorage.clear();
+              sessionStorage.clear();
+              toast.success('Session cleared! Refreshing...');
+              setTimeout(() => window.location.reload(), 500);
+            }}
+            className="gap-2"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Clear Session & Refresh
+          </Button>
+        </div>
       </div>
     </div>
   );
