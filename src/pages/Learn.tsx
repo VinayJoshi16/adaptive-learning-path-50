@@ -5,6 +5,7 @@ import { ModuleCard } from '@/components/ui/module-card';
 import { ScoreGauge } from '@/components/ui/score-gauge';
 import { FaceLandmarkOverlay } from '@/components/FaceLandmarkOverlay';
 import { EngagementIntervention } from '@/components/EngagementIntervention';
+import { VideoPlayer } from '@/components/VideoPlayer';
 import { modules, getModuleByOrder } from '@/lib/content-data';
 import { PASSING_SCORE } from '@/lib/recommendation-engine';
 import { useLearning } from '@/contexts/LearningContext';
@@ -12,7 +13,7 @@ import { useModuleProgress } from '@/contexts/ModuleProgressContext';
 import { useEngagementTracker } from '@/hooks/use-engagement-tracker';
 import { useEngagementIntervention } from '@/hooks/use-engagement-intervention';
 import { 
-  BookOpen, Play, Square, Eye, EyeOff, Camera, AlertCircle, CheckCircle, Loader2, Lock, Video
+  BookOpen, Play, Square, Eye, EyeOff, Camera, AlertCircle, CheckCircle, Loader2, Lock
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -149,19 +150,11 @@ export default function Learn() {
                   {/* Video Lecture Section */}
                   {state.currentModule?.videoUrl && (
                     <div className="p-6 border-b border-border">
-                      <div className="flex items-center gap-2 mb-4">
-                        <Video className="w-5 h-5 text-primary" />
-                        <h2 className="font-display font-semibold text-lg text-foreground">Video Lecture</h2>
-                      </div>
-                      <div className="aspect-video rounded-lg overflow-hidden bg-muted">
-                        <iframe
-                          src={state.currentModule.videoUrl}
-                          title={`${state.currentModule.title} Video`}
-                          className="w-full h-full"
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                          allowFullScreen
-                        />
-                      </div>
+                      <VideoPlayer
+                        videoUrl={state.currentModule.videoUrl}
+                        moduleId={state.currentModule.id}
+                        title={state.currentModule.title}
+                      />
                     </div>
                   )}
 
@@ -303,6 +296,7 @@ export default function Learn() {
         onClose={closeIntervention}
         questions={interventionQuestions}
         onComplete={handleInterventionComplete}
+        moduleId={state.currentModule?.id}
       />
     </div>
   );

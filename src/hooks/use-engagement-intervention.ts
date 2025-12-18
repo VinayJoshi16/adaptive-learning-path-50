@@ -123,15 +123,18 @@ export function useEngagementIntervention(
   }, [isTracking, checkEngagement, faceVerified]);
 
   const closeIntervention = useCallback(() => {
-    // Only allow closing if intervention is completed
+    // Only allow closing if intervention is completed AND passed
     if (interventionCompleted) {
       setShowIntervention(false);
     }
   }, [interventionCompleted]);
 
-  const handleInterventionComplete = useCallback((score: number) => {
-    console.log('Intervention completed with score:', score);
-    setInterventionCompleted(true);
+  const handleInterventionComplete = useCallback((score: number, passed: boolean) => {
+    console.log('Intervention completed with score:', score, 'passed:', passed);
+    // Only mark as completed if they passed
+    if (passed) {
+      setInterventionCompleted(true);
+    }
   }, []);
 
   // Check if learning should be blocked (intervention active and not completed)

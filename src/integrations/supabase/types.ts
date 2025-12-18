@@ -14,6 +14,50 @@ export type Database = {
   }
   public: {
     Tables: {
+      intervention_attempts: {
+        Row: {
+          correct_answers: number
+          created_at: string
+          id: string
+          module_id: string
+          passed: boolean
+          questions_count: number
+          score: number
+          session_id: string | null
+          user_id: string
+        }
+        Insert: {
+          correct_answers?: number
+          created_at?: string
+          id?: string
+          module_id: string
+          passed?: boolean
+          questions_count?: number
+          score?: number
+          session_id?: string | null
+          user_id: string
+        }
+        Update: {
+          correct_answers?: number
+          created_at?: string
+          id?: string
+          module_id?: string
+          passed?: boolean
+          questions_count?: number
+          score?: number
+          session_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "intervention_attempts_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "learning_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       learning_sessions: {
         Row: {
           created_at: string
@@ -115,6 +159,45 @@ export type Database = {
           display_name?: string | null
           id?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      video_watch_progress: {
+        Row: {
+          completed: boolean
+          created_at: string
+          id: string
+          last_position_seconds: number
+          module_id: string
+          total_duration_seconds: number
+          updated_at: string
+          user_id: string
+          watch_duration_seconds: number
+          watch_percentage: number
+        }
+        Insert: {
+          completed?: boolean
+          created_at?: string
+          id?: string
+          last_position_seconds?: number
+          module_id: string
+          total_duration_seconds?: number
+          updated_at?: string
+          user_id: string
+          watch_duration_seconds?: number
+          watch_percentage?: number
+        }
+        Update: {
+          completed?: boolean
+          created_at?: string
+          id?: string
+          last_position_seconds?: number
+          module_id?: string
+          total_duration_seconds?: number
+          updated_at?: string
+          user_id?: string
+          watch_duration_seconds?: number
+          watch_percentage?: number
         }
         Relationships: []
       }
