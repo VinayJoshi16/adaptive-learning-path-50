@@ -8,6 +8,7 @@ export interface Module {
   duration: number; // in minutes
   order: number; // Sequential order for unlocking
   topics: string[]; // Topic areas covered in this module
+  videoUrl?: string; // YouTube or video URL for the module
 }
 
 export interface QuizQuestion {
@@ -40,6 +41,7 @@ Understanding ML fundamentals helps you grasp how modern AI systems make decisio
     duration: 10,
     order: 1,
     topics: ['Supervised Learning', 'Unsupervised Learning', 'Reinforcement Learning', 'ML Applications'],
+    videoUrl: 'https://www.youtube.com/embed/HgBpFaATdoA',
   },
   {
     id: 'data-preprocessing',
@@ -64,6 +66,7 @@ Good preprocessing can significantly improve model performance and training spee
     duration: 12,
     order: 2,
     topics: ['Data Cleaning', 'Feature Scaling', 'Encoding', 'Feature Selection'],
+    videoUrl: 'https://www.youtube.com/embed/0xVqLJe9_CY',
   },
   {
     id: 'regression-models',
@@ -92,6 +95,7 @@ Always check for linearity assumptions and handle outliers appropriately.`,
     duration: 15,
     order: 3,
     topics: ['Linear Regression', 'Polynomial Regression', 'Regularization', 'Model Evaluation'],
+    videoUrl: 'https://www.youtube.com/embed/nk2CQITm_eo',
   },
   {
     id: 'neural-networks',
@@ -118,6 +122,7 @@ Image recognition, natural language processing, and autonomous vehicles all rely
     duration: 15,
     order: 4,
     topics: ['Network Architecture', 'Backpropagation', 'CNN', 'RNN'],
+    videoUrl: 'https://www.youtube.com/embed/aircAruvnKk',
   },
   {
     id: 'model-evaluation',
@@ -146,6 +151,7 @@ Always use a holdout test set and never train on your evaluation data.`,
     duration: 18,
     order: 5,
     topics: ['Evaluation Metrics', 'Cross-Validation', 'Overfitting', 'Test Strategy'],
+    videoUrl: 'https://www.youtube.com/embed/fSytzGwwBVw',
   },
   {
     id: 'ensemble-methods',
@@ -172,6 +178,7 @@ More complexity and training time, but often better performance.`,
     duration: 20,
     order: 6,
     topics: ['Bagging', 'Boosting', 'Random Forest', 'Gradient Boosting'],
+    videoUrl: 'https://www.youtube.com/embed/sRktKszFmSk',
   },
   {
     id: 'deep-learning',
@@ -198,6 +205,7 @@ Large language models, diffusion models for image generation, and multimodal AI 
     duration: 20,
     order: 7,
     topics: ['Transformers', 'GANs', 'Autoencoders', 'Transfer Learning'],
+    videoUrl: 'https://www.youtube.com/embed/SZorAJ4I-sA',
   },
   {
     id: 'nlp-fundamentals',
@@ -227,6 +235,7 @@ Large Language Models (LLMs) like GPT-4 and Claude represent the cutting edge of
     duration: 25,
     order: 8,
     topics: ['Tokenization', 'Word Embeddings', 'Attention', 'LLMs'],
+    videoUrl: 'https://www.youtube.com/embed/fNxaJsNG3-s',
   },
   {
     id: 'computer-vision',
@@ -256,6 +265,7 @@ Vision Transformers (ViT) are challenging CNN dominance, and multimodal models c
     duration: 25,
     order: 9,
     topics: ['Convolution', 'Object Detection', 'Image Segmentation', 'Vision Transformers'],
+    videoUrl: 'https://www.youtube.com/embed/QzY57FaENXg',
   },
 ];
 

@@ -12,7 +12,7 @@ import { useModuleProgress } from '@/contexts/ModuleProgressContext';
 import { useEngagementTracker } from '@/hooks/use-engagement-tracker';
 import { useEngagementIntervention } from '@/hooks/use-engagement-intervention';
 import { 
-  BookOpen, Play, Square, Eye, EyeOff, Camera, AlertCircle, CheckCircle, Loader2, Lock
+  BookOpen, Play, Square, Eye, EyeOff, Camera, AlertCircle, CheckCircle, Loader2, Lock, Video
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -124,7 +124,20 @@ export default function Learn() {
         ) : (
           <div className="animate-fade-in">
             <div className="grid lg:grid-cols-3 gap-8">
-              <div className="lg:col-span-2">
+              <div className="lg:col-span-2 relative">
+                {/* Blocking Overlay when intervention is active */}
+                {isLearningBlocked && (
+                  <div className="absolute inset-0 bg-background/90 backdrop-blur-sm z-20 rounded-xl flex flex-col items-center justify-center gap-4">
+                    <div className="w-16 h-16 rounded-full bg-destructive/20 flex items-center justify-center animate-pulse">
+                      <AlertCircle className="w-8 h-8 text-destructive" />
+                    </div>
+                    <h3 className="font-display text-xl font-bold text-destructive">Learning Paused</h3>
+                    <p className="text-muted-foreground text-center max-w-sm">
+                      Your engagement dropped below the required level. Complete the refocus quiz to continue learning.
+                    </p>
+                  </div>
+                )}
+                
                 <div className="bg-card rounded-xl border border-border shadow-soft overflow-hidden">
                   <div className="gradient-primary p-6">
                     <h1 className="font-display text-2xl font-bold text-primary-foreground mb-2">
@@ -132,6 +145,25 @@ export default function Learn() {
                     </h1>
                     <p className="text-primary-foreground/80 text-sm">{state.currentModule?.description}</p>
                   </div>
+
+                  {/* Video Lecture Section */}
+                  {state.currentModule?.videoUrl && (
+                    <div className="p-6 border-b border-border">
+                      <div className="flex items-center gap-2 mb-4">
+                        <Video className="w-5 h-5 text-primary" />
+                        <h2 className="font-display font-semibold text-lg text-foreground">Video Lecture</h2>
+                      </div>
+                      <div className="aspect-video rounded-lg overflow-hidden bg-muted">
+                        <iframe
+                          src={state.currentModule.videoUrl}
+                          title={`${state.currentModule.title} Video`}
+                          className="w-full h-full"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                        />
+                      </div>
+                    </div>
+                  )}
 
                   <div className="p-6">
                     <div className="prose prose-slate max-w-none">
