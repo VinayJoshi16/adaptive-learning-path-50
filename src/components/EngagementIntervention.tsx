@@ -1,34 +1,73 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { QuizQuestion } from '@/lib/content-data';
 import { cn } from '@/lib/utils';
-import { Brain, CheckCircle, XCircle, Sparkles } from 'lucide-react';
+import { Brain, CheckCircle, XCircle, Sparkles, AlertTriangle, RotateCcw } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+
+const MINIMUM_PASSING_SCORE = 60;
 
 interface EngagementInterventionProps {
   open: boolean;
   onClose: () => void;
   questions: QuizQuestion[];
-  onComplete: (score: number) => void;
+  onComplete: (score: number, passed: boolean) => void;
+  moduleId?: string;
+  sessionId?: string;
 }
 
 export function EngagementIntervention({ 
   open, 
   onClose, 
   questions, 
-  onComplete 
+  onComplete,
+  moduleId,
+  sessionId,
 }: EngagementInterventionProps) {
+  const { user } = useAuth();
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
   const [score, setScore] = useState(0);
+  const [passed, setPassed] = useState(false);
+  const [attempts, setAttempts] = useState(0);
+
+  // Reset state when dialog opens with new questions
+  useEffect(() => {
+    if (open && questions.length > 0) {
+      setAnswers({});
+      setSubmitted(false);
+      setScore(0);
+      setPassed(false);
+    }
+  }, [open, questions]);
 
   const handleAnswerChange = (questionId: string, answer: string) => {
     setAnswers(prev => ({ ...prev, [questionId]: answer }));
   };
 
-  const handleSubmit = () => {
+  const saveAttemptToDatabase = async (finalScore: number, didPass: boolean, correct: number) => {
+    if (!user || !moduleId) return;
+    
+    try {
+      await supabase.from('intervention_attempts').insert({
+        user_id: user.id,
+        session_id: sessionId || null,
+        module_id: moduleId,
+        score: finalScore,
+        passed: didPass,
+        questions_count: questions.length,
+        correct_answers: correct,
+      });
+    } catch (error) {
+      console.error('Failed to save intervention attempt:', error);
+    }
+  };
+
+  const handleSubmit = async () => {
     let correct = 0;
     questions.forEach(q => {
       if (answers[q.id] === q.correctOption) {
@@ -36,44 +75,71 @@ export function EngagementIntervention({
       }
     });
     const finalScore = Math.round((correct / questions.length) * 100);
+    const didPass = finalScore >= MINIMUM_PASSING_SCORE;
+    
     setScore(finalScore);
+    setPassed(didPass);
     setSubmitted(true);
-    onComplete(finalScore);
+    setAttempts(prev => prev + 1);
+    
+    // Save attempt to database
+    await saveAttemptToDatabase(finalScore, didPass, correct);
+    
+    // Only call onComplete with passed=true if they actually passed
+    onComplete(finalScore, didPass);
   };
 
-  const handleClose = () => {
-    // Only allow closing after submission
-    if (!submitted) return;
+  const handleRetry = () => {
     setAnswers({});
     setSubmitted(false);
     setScore(0);
+  };
+
+  const handleClose = () => {
+    // Only allow closing after passing
+    if (!passed) return;
+    setAnswers({});
+    setSubmitted(false);
+    setScore(0);
+    setAttempts(0);
     onClose();
   };
 
   const allAnswered = Object.keys(answers).length === questions.length;
 
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen && submitted) handleClose(); }}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+    <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen && passed) handleClose(); }}>
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto" onPointerDownOutside={(e) => !passed && e.preventDefault()}>
         <DialogHeader>
           <div className="flex items-center gap-2 mb-2">
             <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center">
               <Brain className="w-5 h-5 text-primary-foreground" />
             </div>
             <DialogTitle className="font-display text-xl">
-              {submitted ? 'Great job refocusing!' : 'Time to Refocus!'}
+              {submitted ? (passed ? 'Great job!' : 'Try Again') : 'Time to Refocus!'}
             </DialogTitle>
           </div>
           <DialogDescription>
             {submitted 
-              ? `You scored ${score}% on the refocus questions.`
-              : "We noticed your engagement dropped. Answer these quick questions to help you get back on track!"
+              ? passed 
+                ? `You scored ${score}% and can continue learning.`
+                : `You scored ${score}%. You need at least ${MINIMUM_PASSING_SCORE}% to continue.`
+              : `Your engagement dropped. Answer these questions to continue. You need at least ${MINIMUM_PASSING_SCORE}% to proceed.`
             }
           </DialogDescription>
         </DialogHeader>
 
         {!submitted ? (
           <div className="space-y-6 mt-4">
+            {attempts > 0 && (
+              <div className="p-3 rounded-lg bg-warning/10 border border-warning/20 text-warning text-sm">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4" />
+                  <span>Attempt {attempts + 1} - Review the questions carefully!</span>
+                </div>
+              </div>
+            )}
+            
             {questions.map((question, index) => (
               <div key={question.id} className="space-y-3">
                 <div className="flex items-start gap-3">
@@ -150,20 +216,39 @@ export function EngagementIntervention({
               })}
             </div>
 
-            <div className="p-4 rounded-xl bg-muted/50 text-center">
+            <div className={cn(
+              "p-4 rounded-xl text-center",
+              passed ? "bg-success/10" : "bg-destructive/10"
+            )}>
               <p className="text-sm text-muted-foreground mb-1">
-                {score >= 75 
+                {passed 
                   ? "You're back on track!" 
-                  : score >= 50 
-                  ? "Good effort! Keep focusing."
-                  : "Review the material more carefully."}
+                  : `You need ${MINIMUM_PASSING_SCORE}% to continue. Try again!`
+                }
               </p>
-              <p className="text-2xl font-display font-bold text-primary">{score}%</p>
+              <p className={cn(
+                "text-2xl font-display font-bold",
+                passed ? "text-success" : "text-destructive"
+              )}>
+                {score}%
+              </p>
+              {!passed && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Minimum required: {MINIMUM_PASSING_SCORE}%
+                </p>
+              )}
             </div>
 
-            <Button onClick={handleClose} className="w-full">
-              Continue Learning
-            </Button>
+            {passed ? (
+              <Button onClick={handleClose} className="w-full">
+                Continue Learning
+              </Button>
+            ) : (
+              <Button onClick={handleRetry} variant="outline" className="w-full">
+                <RotateCcw className="w-4 h-4 mr-2" />
+                Try Again
+              </Button>
+            )}
           </div>
         )}
       </DialogContent>

@@ -3,6 +3,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { getSessionsByStudent, getSessionStats, clearSessions, LearningSession } from '@/lib/session-store';
 import { useLearning } from '@/contexts/LearningContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { 
   BarChart3, 
@@ -13,7 +15,10 @@ import {
   Calendar,
   Trash2,
   RefreshCw,
-  Loader2
+  Loader2,
+  Brain,
+  Video,
+  Target
 } from 'lucide-react';
 import {
   LineChart,
@@ -41,8 +46,22 @@ interface SessionStats {
   advancedCount: number;
 }
 
+interface InterventionStats {
+  totalAttempts: number;
+  avgScore: number;
+  passRate: number;
+  totalPassed: number;
+}
+
+interface VideoStats {
+  totalModulesWatched: number;
+  avgWatchPercentage: number;
+  completedVideos: number;
+}
+
 export default function Dashboard() {
   const { state, setStudentId } = useLearning();
+  const { user } = useAuth();
   const [inputId, setInputId] = useState(state.studentId);
   const [sessions, setSessions] = useState<LearningSession[]>([]);
   const [stats, setStats] = useState<SessionStats>({
@@ -53,18 +72,96 @@ export default function Dashboard() {
     repeatCount: 0,
     advancedCount: 0,
   });
+  const [interventionStats, setInterventionStats] = useState<InterventionStats>({
+    totalAttempts: 0,
+    avgScore: 0,
+    passRate: 0,
+    totalPassed: 0,
+  });
+  const [videoStats, setVideoStats] = useState<VideoStats>({
+    totalModulesWatched: 0,
+    avgWatchPercentage: 0,
+    completedVideos: 0,
+  });
+  const [interventionData, setInterventionData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  const loadInterventionData = useCallback(async () => {
+    if (!user) return;
+    
+    const { data: interventions } = await supabase
+      .from('intervention_attempts')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: true });
+    
+    if (interventions && interventions.length > 0) {
+      const totalAttempts = interventions.length;
+      const totalPassed = interventions.filter(i => i.passed).length;
+      const avgScore = Math.round(interventions.reduce((sum, i) => sum + i.score, 0) / totalAttempts);
+      const passRate = Math.round((totalPassed / totalAttempts) * 100);
+      
+      setInterventionStats({
+        totalAttempts,
+        avgScore,
+        passRate,
+        totalPassed,
+      });
+      
+      // Prepare chart data - group by date
+      const groupedByDate = interventions.reduce((acc: any, i) => {
+        const date = new Date(i.created_at).toLocaleDateString();
+        if (!acc[date]) {
+          acc[date] = { date, attempts: 0, passed: 0, totalScore: 0 };
+        }
+        acc[date].attempts++;
+        if (i.passed) acc[date].passed++;
+        acc[date].totalScore += i.score;
+        return acc;
+      }, {});
+      
+      setInterventionData(Object.values(groupedByDate).map((d: any) => ({
+        ...d,
+        avgScore: Math.round(d.totalScore / d.attempts),
+      })));
+    }
+  }, [user]);
+
+  const loadVideoData = useCallback(async () => {
+    if (!user) return;
+    
+    const { data: videoProgress } = await supabase
+      .from('video_watch_progress')
+      .select('*')
+      .eq('user_id', user.id);
+    
+    if (videoProgress && videoProgress.length > 0) {
+      const totalModulesWatched = videoProgress.length;
+      const avgWatchPercentage = Math.round(
+        videoProgress.reduce((sum, v) => sum + v.watch_percentage, 0) / totalModulesWatched
+      );
+      const completedVideos = videoProgress.filter(v => v.completed).length;
+      
+      setVideoStats({
+        totalModulesWatched,
+        avgWatchPercentage,
+        completedVideos,
+      });
+    }
+  }, [user]);
 
   const loadData = useCallback(async (studentId: string) => {
     setIsLoading(true);
     const [sessionsData, statsData] = await Promise.all([
       getSessionsByStudent(studentId),
       getSessionStats(studentId),
+      loadInterventionData(),
+      loadVideoData(),
     ]);
     setSessions(sessionsData);
     setStats(statsData);
     setIsLoading(false);
-  }, []);
+  }, [loadInterventionData, loadVideoData]);
 
   useEffect(() => {
     loadData(state.studentId);
@@ -153,7 +250,7 @@ export default function Dashboard() {
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-8">
             <div className="bg-card rounded-xl border border-border shadow-soft p-6">
               <p className="text-sm text-muted-foreground mb-1">Total Sessions</p>
               <p className="font-display text-3xl font-bold text-foreground">
@@ -173,10 +270,31 @@ export default function Dashboard() {
               </p>
             </div>
             <div className="bg-card rounded-xl border border-border shadow-soft p-6">
-              <p className="text-sm text-muted-foreground mb-1">Advanced Recs</p>
-              <p className="font-display text-3xl font-bold text-success">
-                {isLoading ? '-' : stats.advancedCount}
-              </p>
+              <p className="text-sm text-muted-foreground mb-1">Interventions</p>
+              <div className="flex items-center gap-2">
+                <Brain className="w-5 h-5 text-warning" />
+                <p className="font-display text-3xl font-bold text-warning">
+                  {isLoading ? '-' : interventionStats.totalAttempts}
+                </p>
+              </div>
+            </div>
+            <div className="bg-card rounded-xl border border-border shadow-soft p-6">
+              <p className="text-sm text-muted-foreground mb-1">Pass Rate</p>
+              <div className="flex items-center gap-2">
+                <Target className="w-5 h-5 text-success" />
+                <p className="font-display text-3xl font-bold text-success">
+                  {isLoading ? '-' : `${interventionStats.passRate}%`}
+                </p>
+              </div>
+            </div>
+            <div className="bg-card rounded-xl border border-border shadow-soft p-6">
+              <p className="text-sm text-muted-foreground mb-1">Videos Completed</p>
+              <div className="flex items-center gap-2">
+                <Video className="w-5 h-5 text-primary" />
+                <p className="font-display text-3xl font-bold text-primary">
+                  {isLoading ? '-' : videoStats.completedVideos}
+                </p>
+              </div>
             </div>
           </div>
 
@@ -294,6 +412,69 @@ export default function Dashboard() {
                   </div>
                 </div>
               </div>
+
+              {/* Intervention Quiz Analytics */}
+              {interventionData.length > 0 && (
+                <div className="bg-card rounded-xl border border-border shadow-soft p-6 mb-8">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Brain className="w-5 h-5 text-warning" />
+                    <h3 className="font-display font-semibold text-lg text-foreground">
+                      Intervention Quiz Performance
+                    </h3>
+                  </div>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={interventionData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                        <XAxis 
+                          dataKey="date" 
+                          stroke="hsl(var(--muted-foreground))"
+                          fontSize={12}
+                        />
+                        <YAxis 
+                          stroke="hsl(var(--muted-foreground))"
+                          fontSize={12}
+                          domain={[0, 100]}
+                        />
+                        <Tooltip 
+                          contentStyle={{
+                            backgroundColor: 'hsl(var(--card))',
+                            border: '1px solid hsl(var(--border))',
+                            borderRadius: '8px',
+                          }}
+                        />
+                        <Legend />
+                        <Bar 
+                          dataKey="avgScore" 
+                          name="Avg Score"
+                          fill="hsl(var(--warning))" 
+                          radius={[4, 4, 0, 0]}
+                        />
+                        <Bar 
+                          dataKey="attempts" 
+                          name="Attempts"
+                          fill="hsl(var(--muted-foreground))" 
+                          radius={[4, 4, 0, 0]}
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-border">
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-warning">{interventionStats.totalAttempts}</p>
+                      <p className="text-xs text-muted-foreground">Total Interventions</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-success">{interventionStats.avgScore}%</p>
+                      <p className="text-xs text-muted-foreground">Average Score</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-primary">{interventionStats.passRate}%</p>
+                      <p className="text-xs text-muted-foreground">First-Try Pass Rate</p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Recommendations Distribution & Session History */}
               <div className="grid lg:grid-cols-3 gap-6">
