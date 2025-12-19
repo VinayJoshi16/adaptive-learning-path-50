@@ -6,6 +6,8 @@ import { useLearning } from '@/contexts/LearningContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
+import { exportToCSV, exportToPDF } from '@/lib/export-utils';
+import { Leaderboard } from '@/components/Leaderboard';
 import { 
   BarChart3, 
   TrendingUp, 
@@ -18,7 +20,9 @@ import {
   Loader2,
   Brain,
   Video,
-  Target
+  Target,
+  Download,
+  FileText
 } from 'lucide-react';
 import {
   LineChart,
@@ -213,7 +217,7 @@ export default function Dashboard() {
               </h1>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <div className="flex items-center gap-2 bg-card rounded-lg border border-border p-1">
                 <User className="w-4 h-4 text-muted-foreground ml-2" />
                 <Input
@@ -226,6 +230,32 @@ export default function Dashboard() {
                   Load
                 </Button>
               </div>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => exportToCSV(
+                  { sessions, interventionStats, videoStats, sessionStats: stats },
+                  `learning-analytics-${state.studentId}`
+                )}
+                disabled={isLoading || sessions.length === 0}
+                className="gap-2"
+              >
+                <Download className="w-4 h-4" />
+                CSV
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => exportToPDF(
+                  { sessions, interventionStats, videoStats, sessionStats: stats },
+                  `learning-analytics-${state.studentId}`
+                )}
+                disabled={isLoading || sessions.length === 0}
+                className="gap-2"
+              >
+                <FileText className="w-4 h-4" />
+                PDF
+              </Button>
               <Button 
                 variant="outline" 
                 size="icon"
@@ -475,6 +505,11 @@ export default function Dashboard() {
                   </div>
                 </div>
               )}
+
+              {/* Leaderboard */}
+              <div className="mb-8">
+                <Leaderboard />
+              </div>
 
               {/* Recommendations Distribution & Session History */}
               <div className="grid lg:grid-cols-3 gap-6">
