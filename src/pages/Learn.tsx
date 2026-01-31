@@ -18,7 +18,7 @@ import { cn } from '@/lib/utils';
 
 export default function Learn() {
   const navigate = useNavigate();
-  const { state, selectModule, startLearning, finishLearning } = useLearning();
+  const { state, selectModule, startLearning, finishLearning, grantQuizAccess } = useLearning();
   const { progress, getModuleProgress } = useModuleProgress();
   const { 
     state: engagementState, videoRef, canvasRef, startTracking, stopTracking 
@@ -64,6 +64,7 @@ export default function Learn() {
   const handleFinishLearning = () => {
     const finalScore = stopTracking();
     finishLearning(finalScore);
+    grantQuizAccess(); // Only way to get quiz access: must click "Finish & Take Quiz"
     navigate('/quiz');
   };
 

@@ -49,8 +49,12 @@ export default function Auth() {
     setIsSubmitting(false);
 
     if (error) {
-      if (error.message.includes('Invalid login credentials')) {
+      if (error.message.includes('Invalid') || error.message.includes('credentials')) {
         toast.error('Invalid email or password');
+      } else if (error.message.includes('Failed to fetch') || error.message.includes('fetch') || error.message.includes('NetworkError')) {
+        toast.error(
+          'Cannot reach the server. If you deployed this app, set VITE_API_URL to your backend URL and rebuild the frontend.'
+        );
       } else {
         toast.error(error.message);
       }
@@ -79,8 +83,12 @@ export default function Auth() {
     setIsSubmitting(false);
 
     if (error) {
-      if (error.message.includes('already registered')) {
+      if (error.message.includes('already exists')) {
         toast.error('An account with this email already exists');
+      } else if (error.message.includes('Failed to fetch') || error.message.includes('fetch') || error.message.includes('NetworkError')) {
+        toast.error(
+          'Cannot reach the server. If you deployed this app, set VITE_API_URL to your backend URL and rebuild the frontend.'
+        );
       } else {
         toast.error(error.message);
       }

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ScoreGauge } from '@/components/ui/score-gauge';
@@ -34,9 +34,18 @@ export default function Quiz() {
     setQuizScore, 
     setRecommendation, 
     setRecommendationEngine,
-    resetSession 
+    resetSession,
+    revokeQuizAccess,
   } = useLearning();
   const { recordQuizResult, getModuleProgress } = useModuleProgress();
+
+  // Block access unless user came from "Finish & Take Quiz" on a module
+  useEffect(() => {
+    if (!state.quizAccessGranted || !state.currentModule) {
+      navigate('/learn', { replace: true });
+      toast.error('Complete a module and click "Finish & Take Quiz" to access the quiz.');
+    }
+  }, [state.quizAccessGranted, state.currentModule, navigate]);
 
   const questions = useMemo(() => {
     if (!state.currentModule) return [];
@@ -99,6 +108,7 @@ export default function Quiz() {
       toast.error('Failed to save session');
     }
 
+    revokeQuizAccess(); // Must go through Learn again to take another quiz
     setIsSubmitting(false);
     setSubmitted(true);
   };
@@ -108,25 +118,9 @@ export default function Quiz() {
     navigate('/learn');
   };
 
-  if (!state.currentModule) {
-    return (
-      <div className="min-h-screen py-8">
-        <div className="container mx-auto px-4">
-          <div className="max-w-md mx-auto text-center py-20">
-            <ClipboardList className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-            <h2 className="font-display text-2xl font-bold text-foreground mb-2">
-              No Module Selected
-            </h2>
-            <p className="text-muted-foreground mb-6">
-              Please complete a learning module first before taking the quiz.
-            </p>
-            <Button asChild variant="hero" size="lg">
-              <a href="/learn">Go to Learning</a>
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
+  // Redirect is handled in useEffect; show nothing while redirecting
+  if (!state.quizAccessGranted || !state.currentModule) {
+    return null;
   }
 
   return (

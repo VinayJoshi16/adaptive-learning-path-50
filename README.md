@@ -1,52 +1,82 @@
-# Welcome to your MY project
+# PALM - Personalized Adaptive Learning with Multimodality
 
-## How can I edit this code?
+An intelligent learning platform that adapts to your engagement level and performance, delivering personalized content recommendations in real-time.
 
-There are several ways of editing your application.
+## Tech Stack
 
-**Use your preferred IDE**
+- **Frontend:** React, TypeScript, Vite, Tailwind CSS, shadcn/ui
+- **Backend:** Node.js, Express
+- **Database:** MongoDB
+- **Auth:** JWT (custom)
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+## Prerequisites
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+- Node.js 18+
+- MongoDB (local or [MongoDB Atlas](https://www.mongodb.com/atlas))
 
-Follow these steps:
+## Setup
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+### 1. Install dependencies
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+```bash
+npm install
+cd server && npm install && cd ..
+```
 
-# Step 3: Install the necessary dependencies.
-npm i
+### 2. Configure environment
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+**Server** (create `server/.env`):
+
+```
+PORT=3001
+MONGODB_URI=mongodb://localhost:27017/palm
+JWT_SECRET=your-secret-key-change-in-production
+```
+
+For MongoDB Atlas, use your connection string:
+
+```
+MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/palm
+```
+
+### 3. Run the app
+
+**Option A: Run both frontend and backend together**
+
+```bash
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+**Option B: Run separately (in two terminals)**
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+```bash
+# Terminal 1 - Backend
+npm run dev:server
 
-**Use GitHub Codespaces**
+# Terminal 2 - Frontend
+npm run dev:client
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+- Frontend: http://localhost:8080
+- Backend API: http://localhost:3001/api
 
-## What technologies are used for this project?
+## Scripts
 
-This project is built with:
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Run frontend + backend together |
+| `npm run dev:client` | Run frontend only |
+| `npm run dev:server` | Run backend only |
+| `npm run build` | Build frontend for production |
+| `npm run server` | Start production server |
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Production Deployment
 
+1. **Deploy the backend** (`server/`) to a Node.js host (Railway, Render, Fly.io, etc.). Note the public URL (e.g. `https://your-app.railway.app`).
+2. **Set the API URL for the frontend:** In your **frontend** host (Vercel, Netlify, etc.), add an environment variable:
+   - **Name:** `VITE_API_URL`
+   - **Value:** Your backend URL **including** `/api`, e.g. `https://your-app.railway.app/api`
+3. **Build the frontend** with that variable set (e.g. trigger a new deploy after adding `VITE_API_URL`). Vite bakes `VITE_API_URL` into the build, so sign-in/sign-up will call your deployed backend instead of failing with "Failed to fetch".
+4. Serve the `dist` folder from your frontend host.
+
+If you see **"Failed to fetch"** or **"Unable to connect"** on sign-in/sign-up after deploying, the frontend is still calling `/api` on the same domain (no backend there). Fix: set `VITE_API_URL` to your backend URL and redeploy the frontend.

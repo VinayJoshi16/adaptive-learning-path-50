@@ -10,6 +10,8 @@ interface LearningState {
   isLearning: boolean;
   recommendation: RecommendationResult | null;
   recommendationEngine: 'rules' | 'ml';
+  /** Set to true only when user clicks "Finish & Take Quiz"; required to access /quiz */
+  quizAccessGranted: boolean;
 }
 
 interface LearningContextType {
@@ -18,6 +20,8 @@ interface LearningContextType {
   selectModule: (moduleId: string) => void;
   startLearning: () => void;
   finishLearning: (engagementScore: number) => void;
+  grantQuizAccess: () => void;
+  revokeQuizAccess: () => void;
   setQuizScore: (score: number) => void;
   setRecommendation: (rec: RecommendationResult) => void;
   setRecommendationEngine: (engine: 'rules' | 'ml') => void;
@@ -32,6 +36,7 @@ const initialState: LearningState = {
   isLearning: false,
   recommendation: null,
   recommendationEngine: 'rules',
+  quizAccessGranted: false,
 };
 
 const LearningContext = createContext<LearningContextType | null>(null);
@@ -56,6 +61,14 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
     setState(prev => ({ ...prev, isLearning: false, engagementScore }));
   }, []);
 
+  const grantQuizAccess = useCallback(() => {
+    setState(prev => ({ ...prev, quizAccessGranted: true }));
+  }, []);
+
+  const revokeQuizAccess = useCallback(() => {
+    setState(prev => ({ ...prev, quizAccessGranted: false }));
+  }, []);
+
   const setQuizScore = useCallback((score: number) => {
     setState(prev => ({ ...prev, quizScore: score }));
   }, []);
@@ -76,6 +89,7 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
       quizScore: 0,
       isLearning: false,
       recommendation: null,
+      quizAccessGranted: false,
     }));
   }, []);
 
@@ -87,6 +101,8 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
         selectModule,
         startLearning,
         finishLearning,
+        grantQuizAccess,
+        revokeQuizAccess,
         setQuizScore,
         setRecommendation,
         setRecommendationEngine,
