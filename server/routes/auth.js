@@ -57,6 +57,9 @@ router.post('/signup', async (req, res) => {
 router.post('/signin', async (req, res) => {
   try {
     const db = getDB();
+    if (!db) {
+      return res.status(503).json({ error: 'Database not connected. Please try again.' });
+    }
     const users = db.collection('users');
     const { email, password } = req.body;
 

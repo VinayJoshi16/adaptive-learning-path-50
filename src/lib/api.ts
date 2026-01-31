@@ -33,7 +33,8 @@ export async function api<T>(
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const err = new Error(data.error || res.statusText || 'Request failed');
+    const message = data.error || res.statusText || `Request failed (${res.status})`;
+    const err = new Error(message);
     (err as Error & { status?: number }).status = res.status;
     throw err;
   }

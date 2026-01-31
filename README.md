@@ -72,11 +72,29 @@ npm run dev:client
 
 ## Production Deployment
 
-1. **Deploy the backend** (`server/`) to a Node.js host (Railway, Render, Fly.io, etc.). Note the public URL (e.g. `https://your-app.railway.app`).
-2. **Set the API URL for the frontend:** In your **frontend** host (Vercel, Netlify, etc.), add an environment variable:
-   - **Name:** `VITE_API_URL`
-   - **Value:** Your backend URL **including** `/api`, e.g. `https://your-app.railway.app/api`
-3. **Build the frontend** with that variable set (e.g. trigger a new deploy after adding `VITE_API_URL`). Vite bakes `VITE_API_URL` into the build, so sign-in/sign-up will call your deployed backend instead of failing with "Failed to fetch".
-4. Serve the `dist` folder from your frontend host.
+### Free: Deploy only on Vercel (recommended)
 
-If you see **"Failed to fetch"** or **"Unable to connect"** on sign-in/sign-up after deploying, the frontend is still calling `/api` on the same domain (no backend there). Fix: set `VITE_API_URL` to your backend URL and redeploy the frontend.
+You can run **everything on Vercel for free** (no Railway or other paid backend):
+
+1. **MongoDB Atlas (free tier)**  
+   Create a cluster at [MongoDB Atlas](https://www.mongodb.com/atlas), get the connection string, and in **Network Access** allow access from anywhere (or add Vercel IPs if you prefer).
+
+2. **Deploy to Vercel**  
+   Connect your repo to Vercel and deploy. The `api/` folder is used as serverless API routes on the same domain.
+
+3. **Environment variables in Vercel**  
+   In your Vercel project → Settings → Environment Variables, add:
+   - **`MONGODB_URI`** – your MongoDB Atlas connection string (e.g. `mongodb+srv://user:pass@cluster.mongodb.net/palm`)
+   - **`JWT_SECRET`** – any long random string (e.g. `openssl rand -hex 32`)
+
+4. **No `VITE_API_URL` needed** – The app uses `/api` on the same domain, so sign-in/sign-up work without a separate backend URL.
+
+Redeploy after setting the env vars. Sign-in and sign-up will hit `/api/auth/signin` and `/api/auth/signup` on your Vercel URL.
+
+### Alternative: Separate frontend + backend
+
+1. **Deploy the backend** (`server/`) to a Node.js host (Railway, Render, etc.). Note the public URL.
+2. **Set the API URL for the frontend:** In your frontend host (Vercel, Netlify, etc.), add **`VITE_API_URL`** = your backend URL including `/api` (e.g. `https://your-app.railway.app/api`).
+3. **Redeploy the frontend** so the build includes `VITE_API_URL`.
+
+If you see **"Failed to fetch"** or **"Request failed"**, either set `VITE_API_URL` (when using a separate backend) or ensure `MONGODB_URI` and `JWT_SECRET` are set on Vercel when using the built-in API.

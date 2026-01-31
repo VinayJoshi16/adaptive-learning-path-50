@@ -53,8 +53,15 @@ export default function Auth() {
         toast.error('Invalid email or password');
       } else if (error.message.includes('Failed to fetch') || error.message.includes('fetch') || error.message.includes('NetworkError')) {
         toast.error(
-          'Cannot reach the server. If you deployed this app, set VITE_API_URL to your backend URL and rebuild the frontend.'
+          'Cannot reach the server. Set VITE_API_URL to your backend URL (e.g. Railway) and redeploy the frontend.'
         );
+      } else if (error.message.includes('Request failed')) {
+        const hint = error.message.includes('503')
+          ? ' Backend or database may be down—check Railway (or your backend host) and MongoDB.'
+          : error.message.includes('404')
+            ? ' Wrong API URL. Set VITE_API_URL to your backend URL including /api and redeploy.'
+            : ' Check backend is running and VITE_API_URL is correct.';
+        toast.error(error.message + hint);
       } else {
         toast.error(error.message);
       }
@@ -87,8 +94,15 @@ export default function Auth() {
         toast.error('An account with this email already exists');
       } else if (error.message.includes('Failed to fetch') || error.message.includes('fetch') || error.message.includes('NetworkError')) {
         toast.error(
-          'Cannot reach the server. If you deployed this app, set VITE_API_URL to your backend URL and rebuild the frontend.'
+          'Cannot reach the server. Set VITE_API_URL to your backend URL (e.g. Railway) and redeploy the frontend.'
         );
+      } else if (error.message.includes('Request failed')) {
+        const hint = error.message.includes('503')
+          ? ' Backend or database may be down—check Railway (or your backend host) and MongoDB.'
+          : error.message.includes('404')
+            ? ' Wrong API URL. Set VITE_API_URL to your backend URL including /api and redeploy.'
+            : ' Check backend is running and VITE_API_URL is correct.';
+        toast.error(error.message + hint);
       } else {
         toast.error(error.message);
       }

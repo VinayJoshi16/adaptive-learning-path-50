@@ -15,6 +15,9 @@
     "server": "cd server && npm start"
   },
   "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.2",
+    "mongodb": "^6.10.0",
     "@hookform/resolvers": "^3.10.0",
     "@mediapipe/face_mesh": "^0.4.1633559619",
     "@radix-ui/react-accordion": "^1.2.11",
