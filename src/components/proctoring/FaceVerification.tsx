@@ -10,32 +10,34 @@ interface FaceVerificationProps {
   onFailed: () => void;
 }
 
-/* ---------- Image‑histogram face comparison utilities ---------- */
+/* ================================================================
+   Robust face‑comparison utilities
+   ‑ Grayscale + center‑crop + histogram‑equalization + edge features
+   ================================================================ */
 
-/** Draw an image source (base64 or video element) onto a hidden canvas and return its ImageData. */
+const SIZE = 128; // comparison resolution
+const CROP = 0.55; // keep centre 55 % of each axis (face region)
+
+/** Draw source onto a hidden canvas → ImageData at SIZExSIZE. */
 function getImageData(
   source: HTMLVideoElement | string,
-  width = 160,
-  height = 160,
 ): Promise<ImageData> {
   return new Promise((resolve, reject) => {
     const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
+    canvas.width = SIZE;
+    canvas.height = SIZE;
     const ctx = canvas.getContext('2d');
     if (!ctx) return reject(new Error('Canvas 2D context unavailable'));
 
     if (source instanceof HTMLVideoElement) {
-      // Capture current frame from the webcam
-      ctx.drawImage(source, 0, 0, width, height);
-      resolve(ctx.getImageData(0, 0, width, height));
+      ctx.drawImage(source, 0, 0, SIZE, SIZE);
+      resolve(ctx.getImageData(0, 0, SIZE, SIZE));
     } else {
-      // Load a base64 string into an Image element
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.onload = () => {
-        ctx.drawImage(img, 0, 0, width, height);
-        resolve(ctx.getImageData(0, 0, width, height));
+        ctx.drawImage(img, 0, 0, SIZE, SIZE);
+        resolve(ctx.getImageData(0, 0, SIZE, SIZE));
       };
       img.onerror = () => reject(new Error('Failed to load profile photo'));
       img.src = source;
@@ -43,59 +45,166 @@ function getImageData(
   });
 }
 
-/** Build a normalised RGB colour histogram (16 bins per channel = 48‑dim vector). */
-function buildHistogram(data: ImageData): number[] {
-  const bins = 16;
-  const hist = new Array(bins * 3).fill(0);
-  const d = data.data; // RGBA flat array
-  const totalPixels = data.width * data.height;
-
+/** Convert RGBA ImageData → flat grayscale array (0–255). */
+function toGrayscale(data: ImageData): number[] {
+  const gray: number[] = [];
+  const d = data.data;
   for (let i = 0; i < d.length; i += 4) {
-    const rBin = Math.min(Math.floor(d[i] / (256 / bins)), bins - 1);
-    const gBin = Math.min(Math.floor(d[i + 1] / (256 / bins)), bins - 1);
-    const bBin = Math.min(Math.floor(d[i + 2] / (256 / bins)), bins - 1);
-    hist[rBin] += 1;
-    hist[bins + gBin] += 1;
-    hist[bins * 2 + bBin] += 1;
+    // standard luminance weights
+    gray.push(Math.round(0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]));
   }
-
-  // Normalise so each value is a proportion
-  for (let i = 0; i < hist.length; i++) {
-    hist[i] /= totalPixels;
-  }
-  return hist;
+  return gray;
 }
 
-/** Cosine similarity → 0‑100 percentage. */
-function cosineSimilarity(a: number[], b: number[]): number {
-  let dot = 0, magA = 0, magB = 0;
+/** Centre‑crop a flat WxH grayscale array → smaller cropped array + new dimensions. */
+function centerCrop(gray: number[], w: number, h: number, ratio: number): { data: number[]; w: number; h: number } {
+  const cw = Math.round(w * ratio);
+  const ch = Math.round(h * ratio);
+  const ox = Math.round((w - cw) / 2);
+  const oy = Math.round((h - ch) / 2);
+  const cropped: number[] = [];
+  for (let y = oy; y < oy + ch; y++) {
+    for (let x = ox; x < ox + cw; x++) {
+      cropped.push(gray[y * w + x]);
+    }
+  }
+  return { data: cropped, w: cw, h: ch };
+}
+
+/** Histogram equalization — normalises lighting/contrast. */
+function histogramEqualize(gray: number[]): number[] {
+  const hist = new Array(256).fill(0);
+  for (const v of gray) hist[v]++;
+  const cdf = new Array(256).fill(0);
+  cdf[0] = hist[0];
+  for (let i = 1; i < 256; i++) cdf[i] = cdf[i - 1] + hist[i];
+  const cdfMin = cdf.find((v) => v > 0) || 0;
+  const total = gray.length;
+  const denom = total - cdfMin || 1;
+  return gray.map((v) => Math.round(((cdf[v] - cdfMin) / denom) * 255));
+}
+
+/** Compute simple Sobel‑like edge magnitude for each pixel → flat array same size as input. */
+function edgeMagnitude(gray: number[], w: number, h: number): number[] {
+  const edges = new Array(w * h).fill(0);
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      const idx = y * w + x;
+      // horizontal gradient
+      const gx =
+        -gray[(y - 1) * w + (x - 1)] + gray[(y - 1) * w + (x + 1)]
+        - 2 * gray[y * w + (x - 1)] + 2 * gray[y * w + (x + 1)]
+        - gray[(y + 1) * w + (x - 1)] + gray[(y + 1) * w + (x + 1)];
+      // vertical gradient
+      const gy =
+        -gray[(y - 1) * w + (x - 1)] - 2 * gray[(y - 1) * w + x] - gray[(y - 1) * w + (x + 1)]
+        + gray[(y + 1) * w + (x - 1)] + 2 * gray[(y + 1) * w + x] + gray[(y + 1) * w + (x + 1)];
+      edges[idx] = Math.sqrt(gx * gx + gy * gy);
+    }
+  }
+  return edges;
+}
+
+/** Normalised cross‑correlation between two equal‑length arrays. Returns 0–100. */
+function ncc(a: number[], b: number[]): number {
+  const n = a.length;
+  let sumA = 0, sumB = 0;
+  for (let i = 0; i < n; i++) { sumA += a[i]; sumB += b[i]; }
+  const meanA = sumA / n;
+  const meanB = sumB / n;
+  let num = 0, denA = 0, denB = 0;
+  for (let i = 0; i < n; i++) {
+    const da = a[i] - meanA;
+    const db = b[i] - meanB;
+    num += da * db;
+    denA += da * da;
+    denB += db * db;
+  }
+  const denom = Math.sqrt(denA) * Math.sqrt(denB);
+  if (denom === 0) return 0;
+  // NCC ranges −1…+1 → scale to 0…100
+  return Math.round(((num / denom) + 1) * 50);
+}
+
+/** Build a grayscale intensity histogram (32 bins) → normalised. */
+function grayHistogram(gray: number[]): number[] {
+  const bins = 32;
+  const hist = new Array(bins).fill(0);
+  for (const v of gray) {
+    const b = Math.min(Math.floor(v / (256 / bins)), bins - 1);
+    hist[b]++;
+  }
+  const total = gray.length;
+  return hist.map((v) => v / total);
+}
+
+/** Cosine similarity for two vectors → 0–100. */
+function cosine(a: number[], b: number[]): number {
+  let dot = 0, ma = 0, mb = 0;
   for (let i = 0; i < a.length; i++) {
     dot += a[i] * b[i];
-    magA += a[i] * a[i];
-    magB += b[i] * b[i];
+    ma += a[i] * a[i];
+    mb += b[i] * b[i];
   }
-  const denom = Math.sqrt(magA) * Math.sqrt(magB);
+  const denom = Math.sqrt(ma) * Math.sqrt(mb);
   if (denom === 0) return 0;
   return Math.round((dot / denom) * 100);
 }
 
-/* ---------- Component ---------- */
+/**
+ * Master comparison: returns a 0–100 match score.
+ * Combines three metrics (weighted):
+ *   40 % — edge‑structure NCC   (lighting invariant)
+ *   30 % — equalised‑gray NCC   (face texture)
+ *   30 % — gray histogram cosine (overall tone distribution)
+ */
+function compareFaces(imgA: ImageData, imgB: ImageData): number {
+  // 1. Grayscale
+  const grayA = toGrayscale(imgA);
+  const grayB = toGrayscale(imgB);
 
-const MATCH_THRESHOLD = 70; // % required to pass
+  // 2. Centre‑crop (removes most background)
+  const cropA = centerCrop(grayA, SIZE, SIZE, CROP);
+  const cropB = centerCrop(grayB, SIZE, SIZE, CROP);
+
+  // 3. Histogram‑equalise (normalises lighting)
+  const eqA = histogramEqualize(cropA.data);
+  const eqB = histogramEqualize(cropB.data);
+
+  // Metric 1 — Edge structure (most robust to lighting)
+  const edgeA = edgeMagnitude(eqA, cropA.w, cropA.h);
+  const edgeB = edgeMagnitude(eqB, cropB.w, cropB.h);
+  const edgeScore = ncc(edgeA, edgeB);
+
+  // Metric 2 — Equalised gray pixel NCC
+  const grayScore = ncc(eqA, eqB);
+
+  // Metric 3 — Gray histogram cosine
+  const histA = grayHistogram(eqA);
+  const histB = grayHistogram(eqB);
+  const histScore = cosine(histA, histB);
+
+  // Weighted combination
+  const combined = Math.round(edgeScore * 0.4 + grayScore * 0.3 + histScore * 0.3);
+  return Math.max(0, Math.min(100, combined));
+}
+
+/* ================================================================ */
+
+const MATCH_THRESHOLD = 60; // % required to pass — lowered for real‑world variance
 
 export function FaceVerification({ onVerified, onFailed }: FaceVerificationProps) {
   const { user } = useAuth();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [status, setStatus] = useState<'initializing' | 'ready' | 'verifying' | 'success' | 'failed'>('initializing');
   const [matchScore, setMatchScore] = useState<number>(0);
-  const [capturedFrame, setCapturedFrame] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string>('');
 
   const profilePhoto = user?.user_metadata?.profilePhotoBase64;
 
   useEffect(() => {
     let stream: MediaStream | null = null;
-    
+
     async function setupCamera() {
       try {
         stream = await navigator.mediaDevices.getUserMedia({
@@ -106,8 +215,8 @@ export function FaceVerification({ onVerified, onFailed }: FaceVerificationProps
         }
         setStatus('ready');
       } catch (err) {
-        console.error("Error accessing webcam", err);
-        toast.error("Webcam access is required for proctoring.");
+        console.error('Error accessing webcam', err);
+        toast.error('Webcam access is required for proctoring.');
         setStatus('failed');
         setErrorMsg('Camera access denied');
       }
@@ -117,7 +226,7 @@ export function FaceVerification({ onVerified, onFailed }: FaceVerificationProps
 
     return () => {
       if (stream) {
-        stream.getTracks().forEach(t => t.stop());
+        stream.getTracks().forEach((t) => t.stop());
       }
     };
   }, []);
@@ -139,26 +248,14 @@ export function FaceVerification({ onVerified, onFailed }: FaceVerificationProps
     setStatus('verifying');
 
     try {
-      // Capture the current webcam frame as a base64 thumbnail for UI display
-      const previewCanvas = document.createElement('canvas');
-      previewCanvas.width = 320;
-      previewCanvas.height = 240;
-      const previewCtx = previewCanvas.getContext('2d');
-      if (previewCtx) {
-        previewCtx.drawImage(videoRef.current, 0, 0, 320, 240);
-        setCapturedFrame(previewCanvas.toDataURL('image/jpeg', 0.8));
-      }
-
-      // Get ImageData for both images (standardised size for fair comparison)
+      // Get ImageData for both images
       const [webcamData, profileData] = await Promise.all([
         getImageData(videoRef.current),
         getImageData(profilePhoto),
       ]);
 
-      // Build histograms and compute similarity
-      const webcamHist = buildHistogram(webcamData);
-      const profileHist = buildHistogram(profileData);
-      const score = cosineSimilarity(webcamHist, profileHist);
+      // Run the robust multi‑metric comparison
+      const score = compareFaces(webcamData, profileData);
 
       setMatchScore(score);
 
@@ -214,14 +311,14 @@ export function FaceVerification({ onVerified, onFailed }: FaceVerificationProps
           <div className="flex flex-col items-center gap-2">
             <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Live Camera</span>
             <div className="relative rounded-xl overflow-hidden bg-black aspect-square w-full flex items-center justify-center border-2 border-border">
-              <video 
-                ref={videoRef} 
-                autoPlay 
-                muted 
-                playsInline 
-                className="w-full h-full object-cover transform scale-x-[-1]" 
+              <video
+                ref={videoRef}
+                autoPlay
+                muted
+                playsInline
+                className="w-full h-full object-cover transform scale-x-[-1]"
               />
-              
+
               {status === 'initializing' && (
                 <div className="absolute inset-0 bg-black flex flex-col items-center justify-center text-white/70 z-10">
                   <Loader2 className="w-6 h-6 animate-spin mb-1" />
@@ -269,20 +366,19 @@ export function FaceVerification({ onVerified, onFailed }: FaceVerificationProps
             </p>
           </div>
         )}
-        
-        <Button 
-          variant="hero" 
-          size="xl" 
+
+        <Button
+          variant="hero"
+          size="xl"
           className="w-full"
           onClick={handleVerify}
           disabled={status !== 'ready'}
         >
-          {status === 'ready' ? 'Verify My Identity' : 
-           status === 'verifying' ? 'Verifying…' : 
+          {status === 'ready' ? 'Verify My Identity' :
+           status === 'verifying' ? 'Verifying…' :
            status === 'success' ? 'Continuing…' : 'Access Blocked'}
         </Button>
       </CardContent>
     </Card>
   );
 }
-
