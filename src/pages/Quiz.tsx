@@ -51,7 +51,44 @@ export default function Quiz() {
 
   const questions = useMemo(() => {
     if (!state.currentModule) return [];
-    return getQuestionsByModuleId(state.currentModule.id);
+    
+    // Try hardcoded questions first
+    const hardcoded = getQuestionsByModuleId(state.currentModule.id);
+    if (hardcoded.length > 0) return hardcoded;
+
+    // For admin-created modules: auto-generate questions from topics
+    const topics = state.currentModule.topics || [];
+    if (topics.length === 0) {
+      // Fallback: generate a single generic question from the module title
+      return [{
+        id: `auto-1-${state.currentModule.id}`,
+        moduleId: state.currentModule.id,
+        question: `What is the main focus of "${state.currentModule.title}"?`,
+        options: {
+          a: 'It has no practical applications',
+          b: `Understanding the core concepts of ${state.currentModule.title}`,
+          c: 'It is only theoretical with no real-world use',
+          d: 'None of the above',
+        },
+        correctOption: 'b' as const,
+        topic: state.currentModule.title,
+      }];
+    }
+
+    // Generate one question per topic (up to 5)
+    return topics.slice(0, 5).map((topic, i) => ({
+      id: `auto-${i}-${state.currentModule!.id}`,
+      moduleId: state.currentModule!.id,
+      question: `Which of the following best describes "${topic}"?`,
+      options: {
+        a: 'An outdated concept with no modern relevance',
+        b: `A key concept involving understanding and applying ${topic} principles`,
+        c: 'A purely theoretical idea never used in practice',
+        d: 'An unrelated topic to this module',
+      },
+      correctOption: 'b' as const,
+      topic,
+    }));
   }, [state.currentModule]);
 
   const [answers, setAnswers] = useState<Record<string, string>>({});

@@ -75,7 +75,12 @@ export default function Learn() {
     const isCoding = allCodingModules.some(m => m.id === moduleId);
     const isAdmin = adminModules.some(m => m.id === moduleId);
     if (module && (isAdmin || isModuleUnlocked(module.order, isCoding))) {
-      selectModule(moduleId);
+      // Pass full object for admin modules (not in hardcoded data), ID for built-in modules
+      if (isAdmin) {
+        selectModule(module);
+      } else {
+        selectModule(moduleId);
+      }
     }
   };
 

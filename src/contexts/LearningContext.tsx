@@ -17,7 +17,7 @@ interface LearningState {
 interface LearningContextType {
   state: LearningState;
   setStudentId: (id: string) => void;
-  selectModule: (moduleId: string) => void;
+  selectModule: (moduleIdOrModule: string | Module) => void;
   startLearning: () => void;
   finishLearning: (engagementScore: number) => void;
   grantQuizAccess: () => void;
@@ -48,9 +48,14 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
     setState(prev => ({ ...prev, studentId: id }));
   }, []);
 
-  const selectModule = useCallback((moduleId: string) => {
-    const module = getModuleById(moduleId);
-    setState(prev => ({ ...prev, currentModule: module || null }));
+  const selectModule = useCallback((moduleIdOrModule: string | Module) => {
+    if (typeof moduleIdOrModule === 'string') {
+      const module = getModuleById(moduleIdOrModule);
+      setState(prev => ({ ...prev, currentModule: module || null }));
+    } else {
+      // Direct Module object (e.g. admin-created modules not in hardcoded data)
+      setState(prev => ({ ...prev, currentModule: moduleIdOrModule }));
+    }
   }, []);
 
   const startLearning = useCallback(() => {
