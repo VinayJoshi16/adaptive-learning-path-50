@@ -24,6 +24,7 @@ router.get('/modules/public', async (req, res) => {
         duration: m.duration || 10,
         order: m.order || 1,
         topics: m.topics || [],
+        contentType: m.contentType || 'general',
       })),
     });
   } catch (err) {
@@ -233,6 +234,7 @@ router.get('/modules', adminMiddleware, async (req, res) => {
         duration: m.duration,
         order: m.order,
         topics: m.topics || [],
+        contentType: m.contentType || 'general',
         createdAt: m.created_at,
       })),
     });
@@ -246,7 +248,7 @@ router.post('/modules', adminMiddleware, async (req, res) => {
   try {
     const db = getDB();
     const modules = db.collection('admin_modules');
-    const { title, level, description, content, duration, order, topics } = req.body;
+    const { title, level, description, content, duration, order, topics, contentType } = req.body;
 
     if (!title || !level || !description || !content) {
       return res.status(400).json({ error: 'Title, level, description, and content are required' });
@@ -257,6 +259,7 @@ router.post('/modules', adminMiddleware, async (req, res) => {
       level,
       description,
       content,
+      contentType: contentType || 'general',
       duration: Number(duration) || 10,
       order: Number(order) || 1,
       topics: topics || [],

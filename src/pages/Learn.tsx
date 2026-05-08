@@ -30,6 +30,17 @@ export default function Learn() {
       .then(d => setAdminModules(d.modules || []))
       .catch(() => {});
   }, []);
+
+  // Merge admin-created modules into the correct category
+  const allGeneralModules = useMemo(() => {
+    const adminGeneral = adminModules.filter(m => (m as any).contentType === 'general').map((m, i) => ({ ...m, order: modules.length + i + 1 }));
+    return [...modules, ...adminGeneral];
+  }, [adminModules]);
+
+  const allCodingModules = useMemo(() => {
+    const adminCoding = adminModules.filter(m => (m as any).contentType === 'coding').map((m, i) => ({ ...m, order: codingModules.length + i + 1 }));
+    return [...codingModules, ...adminCoding];
+  }, [adminModules]);
   const { 
     state: engagementState, videoRef, canvasRef, startTracking, stopTracking 
   } = useEngagementTracker();
@@ -60,8 +71,8 @@ export default function Learn() {
   };
 
   const handleModuleSelect = (moduleId: string) => {
-    const module = modules.find(m => m.id === moduleId) || codingModules.find(m => m.id === moduleId) || adminModules.find(m => m.id === moduleId);
-    const isCoding = codingModules.some(m => m.id === moduleId);
+    const module = allGeneralModules.find(m => m.id === moduleId) || allCodingModules.find(m => m.id === moduleId);
+    const isCoding = allCodingModules.some(m => m.id === moduleId);
     const isAdmin = adminModules.some(m => m.id === moduleId);
     if (module && (isAdmin || isModuleUnlocked(module.order, isCoding))) {
       selectModule(moduleId);
@@ -100,22 +111,22 @@ export default function Learn() {
 
             <Tabs defaultValue="general" className="w-full mb-8">
               <div className="flex justify-center mb-8">
-                <TabsList className={`grid ${adminModules.length > 0 ? 'w-[600px] grid-cols-3' : 'w-[400px] grid-cols-2'}`}>
+                <TabsList className="grid w-[400px] grid-cols-2">
                   <TabsTrigger value="general">General Learning</TabsTrigger>
                   <TabsTrigger value="coding">Coding Modules</TabsTrigger>
-                  {adminModules.length > 0 && <TabsTrigger value="admin">Admin Modules</TabsTrigger>}
                 </TabsList>
               </div>
               
               <TabsContent value="general">
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {modules.map(module => {
+                  {allGeneralModules.map(module => {
                     const unlocked = isModuleUnlocked(module.order);
+                    const isAdmin = adminModules.some(m => m.id === module.id);
                     const moduleProgress = getModuleProgress(module.id);
                     
                     return (
                       <div key={module.id} className="relative">
-                        {!unlocked && (
+                        {!unlocked && !isAdmin && (
                           <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 rounded-xl flex flex-col items-center justify-center gap-2">
                             <Lock className="w-8 h-8 text-muted-foreground" />
                             <p className="text-sm text-muted-foreground text-center px-4">
@@ -138,13 +149,14 @@ export default function Learn() {
 
               <TabsContent value="coding">
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {codingModules.map(module => {
+                  {allCodingModules.map(module => {
                     const unlocked = isModuleUnlocked(module.order, true); 
+                    const isAdmin = adminModules.some(m => m.id === module.id);
                     const moduleProgress = getModuleProgress(module.id);
                     
                     return (
                       <div key={module.id} className="relative">
-                        {!unlocked && (
+                        {!unlocked && !isAdmin && (
                           <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 rounded-xl flex flex-col items-center justify-center gap-2">
                             <Lock className="w-8 h-8 text-muted-foreground" />
                             <p className="text-sm text-muted-foreground text-center px-4">
@@ -164,27 +176,6 @@ export default function Learn() {
                   })}
                 </div>
               </TabsContent>
-
-              {adminModules.length > 0 && (
-                <TabsContent value="admin">
-                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {adminModules.map(module => {
-                      const moduleProgress = getModuleProgress(module.id);
-                      return (
-                        <div key={module.id} className="relative">
-                          <ModuleCard
-                            module={module}
-                            onSelect={handleModuleSelect}
-                            selected={state.currentModule?.id === module.id}
-                            completed={moduleProgress?.passed}
-                            bestScore={moduleProgress?.bestScore}
-                          />
-                        </div>
-                      );
-                    })}
-                  </div>
-                </TabsContent>
-              )}
             </Tabs>
 
             {state.currentModule && (

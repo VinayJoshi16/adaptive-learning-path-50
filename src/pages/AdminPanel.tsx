@@ -155,7 +155,7 @@ function ModulesTab({ dark }: { dark: boolean }) {
   const [modules, setModules] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ title: '', level: 'beginner', description: '', content: '', duration: '10', order: '1', topics: '' });
+  const [form, setForm] = useState({ title: '', level: 'beginner', contentType: 'general', description: '', content: '', duration: '10', order: '1', topics: '' });
 
   const load = useCallback(() => { setLoading(true); adminFetch('/admin/modules').then(d => setModules(d.modules || [])).catch(() => {}).finally(() => setLoading(false)); }, []);
   useEffect(load, [load]);
@@ -164,7 +164,7 @@ function ModulesTab({ dark }: { dark: boolean }) {
     e.preventDefault();
     try {
       await adminFetch('/admin/modules', { method: 'POST', body: JSON.stringify({ ...form, duration: Number(form.duration), order: Number(form.order), topics: form.topics.split(',').map(t => t.trim()).filter(Boolean) }) });
-      toast.success('Module created'); setShowForm(false); setForm({ title: '', level: 'beginner', description: '', content: '', duration: '10', order: '1', topics: '' }); load();
+      toast.success('Module created'); setShowForm(false); setForm({ title: '', level: 'beginner', contentType: 'general', description: '', content: '', duration: '10', order: '1', topics: '' }); load();
     } catch (err: any) { toast.error(err.message); }
   };
 
@@ -189,6 +189,11 @@ function ModulesTab({ dark }: { dark: boolean }) {
         <form onSubmit={handleSubmit} className={`rounded-xl border p-5 space-y-4 ${dark ? 'bg-white/5 border-white/10' : 'bg-white border-gray-200 shadow-sm'}`}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div><label className={labelCls}>Title</label><input className={inputCls} value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} required /></div>
+            <div><label className={labelCls}>Content Type</label>
+              <select className={inputCls} value={form.contentType} onChange={e => setForm({ ...form, contentType: e.target.value })}>
+                <option value="general">📘 General Learning</option><option value="coding">💻 Coding Module</option><option value="practice">📝 Practice Questions</option>
+              </select>
+            </div>
             <div><label className={labelCls}>Level</label>
               <select className={inputCls} value={form.level} onChange={e => setForm({ ...form, level: e.target.value })}>
                 <option value="beginner">Beginner</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option>
@@ -208,6 +213,7 @@ function ModulesTab({ dark }: { dark: boolean }) {
         <DataTable dark={dark} onDelete={handleDelete} emptyMsg="No modules created yet. Click 'Add Module' to start."
           columns={[
             { key: 'title', label: 'Title' },
+            { key: 'contentType', label: 'Type', render: (r: any) => <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${r.contentType === 'general' ? 'bg-blue-500/10 text-blue-400' : r.contentType === 'coding' ? 'bg-violet-500/10 text-violet-400' : 'bg-cyan-500/10 text-cyan-400'}`}>{r.contentType === 'general' ? '📘 General' : r.contentType === 'coding' ? '💻 Coding' : '📝 Practice'}</span> },
             { key: 'level', label: 'Level', render: (r: any) => <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${r.level === 'beginner' ? 'bg-green-500/10 text-green-400' : r.level === 'intermediate' ? 'bg-amber-500/10 text-amber-400' : 'bg-red-500/10 text-red-400'}`}>{r.level}</span> },
             { key: 'duration', label: 'Duration', render: (r: any) => `${r.duration} min` },
             { key: 'topics', label: 'Topics', render: (r: any) => (r.topics || []).join(', ') || '—' },
