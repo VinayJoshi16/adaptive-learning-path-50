@@ -5,7 +5,7 @@ import { ModuleCard } from '@/components/ui/module-card';
 import { ScoreGauge } from '@/components/ui/score-gauge';
 import { FaceLandmarkOverlay } from '@/components/FaceLandmarkOverlay';
 import { EngagementIntervention } from '@/components/EngagementIntervention';
-import { modules, getModuleByOrder } from '@/lib/content-data';
+import { modules, codingModules, getModuleByOrder } from '@/lib/content-data';
 import { PASSING_SCORE } from '@/lib/recommendation-engine';
 import { useLearning } from '@/contexts/LearningContext';
 import { useModuleProgress } from '@/contexts/ModuleProgressContext';
@@ -14,6 +14,7 @@ import { useEngagementIntervention } from '@/hooks/use-engagement-intervention';
 import { 
   BookOpen, Play, Square, Eye, EyeOff, Camera, AlertCircle, CheckCircle, Loader2, Lock
 } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 
 export default function Learn() {
@@ -41,17 +42,18 @@ export default function Learn() {
     engagementState.faceDetected
   );
 
-  const isModuleUnlocked = (moduleOrder: number): boolean => {
+  const isModuleUnlocked = (moduleOrder: number, isCoding: boolean = false): boolean => {
     if (moduleOrder === 1) return true;
-    const prevModule = getModuleByOrder(moduleOrder - 1);
+    const prevModule = getModuleByOrder(moduleOrder - 1, isCoding);
     if (!prevModule) return true;
     const prevProgress = getModuleProgress(prevModule.id);
     return prevProgress?.passed ?? false;
   };
 
   const handleModuleSelect = (moduleId: string) => {
-    const module = modules.find(m => m.id === moduleId);
-    if (module && isModuleUnlocked(module.order)) {
+    const module = modules.find(m => m.id === moduleId) || codingModules.find(m => m.id === moduleId);
+    const isCoding = codingModules.some(m => m.id === moduleId);
+    if (module && isModuleUnlocked(module.order, isCoding)) {
       selectModule(moduleId);
     }
   };
@@ -86,32 +88,72 @@ export default function Learn() {
               </p>
             </div>
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-              {modules.map(module => {
-                const unlocked = isModuleUnlocked(module.order);
-                const moduleProgress = getModuleProgress(module.id);
-                
-                return (
-                  <div key={module.id} className="relative">
-                    {!unlocked && (
-                      <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 rounded-xl flex flex-col items-center justify-center gap-2">
-                        <Lock className="w-8 h-8 text-muted-foreground" />
-                        <p className="text-sm text-muted-foreground text-center px-4">
-                          Pass the previous quiz to unlock
-                        </p>
+            <Tabs defaultValue="general" className="w-full mb-8">
+              <div className="flex justify-center mb-8">
+                <TabsList className="grid w-[400px] grid-cols-2">
+                  <TabsTrigger value="general">General Learning</TabsTrigger>
+                  <TabsTrigger value="coding">Coding Modules</TabsTrigger>
+                </TabsList>
+              </div>
+              
+              <TabsContent value="general">
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {modules.map(module => {
+                    const unlocked = isModuleUnlocked(module.order);
+                    const moduleProgress = getModuleProgress(module.id);
+                    
+                    return (
+                      <div key={module.id} className="relative">
+                        {!unlocked && (
+                          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 rounded-xl flex flex-col items-center justify-center gap-2">
+                            <Lock className="w-8 h-8 text-muted-foreground" />
+                            <p className="text-sm text-muted-foreground text-center px-4">
+                              Pass the previous quiz to unlock
+                            </p>
+                          </div>
+                        )}
+                        <ModuleCard
+                          module={module}
+                          onSelect={handleModuleSelect}
+                          selected={state.currentModule?.id === module.id}
+                          completed={moduleProgress?.passed}
+                          bestScore={moduleProgress?.bestScore}
+                        />
                       </div>
-                    )}
-                    <ModuleCard
-                      module={module}
-                      onSelect={handleModuleSelect}
-                      selected={state.currentModule?.id === module.id}
-                      completed={moduleProgress?.passed}
-                      bestScore={moduleProgress?.bestScore}
-                    />
-                  </div>
-                );
-              })}
-            </div>
+                    );
+                  })}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="coding">
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {codingModules.map(module => {
+                    const unlocked = isModuleUnlocked(module.order, true); 
+                    const moduleProgress = getModuleProgress(module.id);
+                    
+                    return (
+                      <div key={module.id} className="relative">
+                        {!unlocked && (
+                          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 rounded-xl flex flex-col items-center justify-center gap-2">
+                            <Lock className="w-8 h-8 text-muted-foreground" />
+                            <p className="text-sm text-muted-foreground text-center px-4">
+                              Pass the previous quiz to unlock
+                            </p>
+                          </div>
+                        )}
+                        <ModuleCard
+                          module={module}
+                          onSelect={handleModuleSelect}
+                          selected={state.currentModule?.id === module.id}
+                          completed={moduleProgress?.passed}
+                          bestScore={moduleProgress?.bestScore}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              </TabsContent>
+            </Tabs>
 
             {state.currentModule && (
               <div className="flex justify-center animate-scale-in">

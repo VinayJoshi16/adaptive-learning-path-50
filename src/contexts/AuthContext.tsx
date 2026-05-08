@@ -11,7 +11,7 @@ interface AuthContextType {
   user: User | null;
   session: { user: User } | null;
   loading: boolean;
-  signUp: (email: string, password: string, displayName: string) => Promise<{ error: Error | null }>;
+  signUp: (email: string, password: string, displayName: string, profilePhotoBase64?: string | null) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
 }
@@ -47,11 +47,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     checkSession();
   }, []);
 
-  const signUp = async (email: string, password: string, displayName: string) => {
+  const signUp = async (email: string, password: string, displayName: string, profilePhotoBase64: string | null = null) => {
     try {
       const data = await api<{ token: string; user: User }>('/auth/signup', {
         method: 'POST',
-        body: JSON.stringify({ email, password, displayName }),
+        body: JSON.stringify({ email, password, displayName, profilePhotoBase64 }),
         token: null,
       });
       auth.setToken(data.token);

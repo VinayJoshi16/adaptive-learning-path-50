@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import { GraduationCap, Mail, Lock, User } from 'lucide-react';
+import { GraduationCap, Mail, Lock, User, Camera } from 'lucide-react';
 
 const emailSchema = z.string().email('Please enter a valid email address');
 const passwordSchema = z.string().min(6, 'Password must be at least 6 characters');
@@ -24,6 +24,18 @@ export default function Auth() {
   const [signupEmail, setSignupEmail] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [profilePhotoBase64, setProfilePhotoBase64] = useState<string | null>(null);
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProfilePhotoBase64(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   useEffect(() => {
     if (user && !loading) {
@@ -86,7 +98,7 @@ export default function Auth() {
     }
 
     setIsSubmitting(true);
-    const { error } = await signUp(signupEmail, signupPassword, displayName);
+    const { error } = await signUp(signupEmail, signupPassword, displayName, profilePhotoBase64);
     setIsSubmitting(false);
 
     if (error) {
@@ -209,6 +221,22 @@ export default function Auth() {
                         className="pl-10"
                         value={displayName}
                         onChange={(e) => setDisplayName(e.target.value)}
+                        required
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="profile-photo">Profile Photo (For Proctoring)</Label>
+                    <div className="relative">
+                      <Camera className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        id="profile-photo"
+                        type="file"
+                        accept="image/*"
+                        capture="user"
+                        className="pl-10 pt-1.5 file:mr-4 file:rounded-full file:border-0 file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+                        onChange={handlePhotoUpload}
                         required
                       />
                     </div>

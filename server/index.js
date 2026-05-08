@@ -4,19 +4,23 @@ import cors from 'cors';
 import { connectDB } from './db.js';
 import authRoutes from './routes/auth.js';
 import sessionsRoutes from './routes/sessions.js';
+import codeRoutes from './routes/code.js';
+import quizRoutes from './routes/quiz.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
 app.use(cors({ origin: true, credentials: true }));
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 
 app.get('/api', (req, res) => {
-  res.json({ ok: true, message: 'PALM API', endpoints: ['/api/health', '/api/auth', '/api/sessions'] });
+  res.json({ ok: true, message: 'PALM API', endpoints: ['/api/health', '/api/auth', '/api/sessions', '/api/code', '/api/quiz'] });
 });
 
 app.use('/api/auth', authRoutes);
 app.use('/api/sessions', sessionsRoutes);
+app.use('/api/code', codeRoutes);
+app.use('/api/quiz', quizRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ ok: true });

@@ -914,7 +914,7 @@ export const interventionQuestions: QuizQuestion[] = [
 ];
 
 export function getModuleById(id: string): Module | undefined {
-  return modules.find(m => m.id === id);
+  return modules.find(m => m.id === id) || codingModules.find(m => m.id === id);
 }
 
 export function getQuestionsByModuleId(moduleId: string): QuizQuestion[] {
@@ -925,7 +925,8 @@ export function getModulesByLevel(level: 'beginner' | 'intermediate' | 'advanced
   return modules.filter(m => m.level === level);
 }
 
-export function getModuleByOrder(order: number): Module | undefined {
+export function getModuleByOrder(order: number, isCoding: boolean = false): Module | undefined {
+  if (isCoding) return codingModules.find(m => m.order === order);
   return modules.find(m => m.order === order);
 }
 
@@ -945,3 +946,65 @@ export function getInterventionQuestions(topics: string[], count: number = 3): Q
   const shuffled = matchingQuestions.sort(() => Math.random() - 0.5);
   return shuffled.slice(0, Math.min(count, 4));
 }
+
+export const codingModules: Module[] = [
+  {
+    id: 'python-basics',
+    title: 'Python Basics',
+    level: 'beginner',
+    description: 'Learn the fundamentals of Python programming.',
+    content: `Python is a high-level, interpreted programming language known for its readability and versatility.
+
+**Key Concepts:**
+- Variables and Data Types
+- Control Flow (if/else, loops)
+- Functions
+- Data Structures (Lists, Dictionaries, Sets, Tuples)`,
+    duration: 30,
+    order: 1,
+    topics: ['Python Syntax', 'Control Flow', 'Data Structures'],
+  },
+  {
+    id: 'dsa-fundamentals',
+    title: 'Data Structures & Algorithms',
+    level: 'intermediate',
+    description: 'Master core data structures and common algorithms.',
+    content: `Data Structures and Algorithms form the foundation of efficient software engineering.
+
+**Key Concepts:**
+- Arrays and Linked Lists
+- Stacks and Queues
+- Trees and Graphs
+- Sorting and Searching Algorithms
+- Time & Space Complexity (Big O Notation)`,
+    duration: 60,
+    order: 2,
+    topics: ['Arrays', 'Linked Lists', 'Trees', 'Algorithms'],
+  },
+  {
+    id: 'java-oop',
+    title: 'Java & Object-Oriented Programming',
+    level: 'intermediate',
+    description: 'Understand OOP concepts using Java.',
+    content: `Java is a class-based, object-oriented programming language designed to have as few implementation dependencies as possible.
+
+**Key Concepts:**
+- Classes and Objects
+- Inheritance
+- Polymorphism
+- Encapsulation
+- Abstraction`,
+    duration: 45,
+    order: 3,
+    topics: ['OOP', 'Inheritance', 'Polymorphism', 'Encapsulation'],
+  }
+];
+
+export function getCodingModuleById(id: string): Module | undefined {
+  return codingModules.find(m => m.id === id);
+}
+
+export function getCodingModuleByOrder(order: number): Module | undefined {
+  return codingModules.find(m => m.order === order);
+}
+

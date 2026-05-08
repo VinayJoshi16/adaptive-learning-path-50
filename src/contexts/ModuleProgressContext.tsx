@@ -12,7 +12,7 @@ interface ModuleProgress {
 
 interface ModuleProgressContextType {
   progress: Map<string, ModuleProgress>;
-  isModuleUnlocked: (moduleId: string, moduleOrder: number) => boolean;
+  isModuleUnlocked: (moduleId: string, moduleOrder: number, isCoding?: boolean) => boolean;
   recordQuizResult: (moduleId: string, score: number) => void;
   getModuleProgress: (moduleId: string) => ModuleProgress | undefined;
   loading: boolean;
@@ -65,10 +65,11 @@ export function ModuleProgressProvider({ children }: { children: React.ReactNode
   }, [user]);
 
   const isModuleUnlocked = useCallback(
-    (moduleId: string, moduleOrder: number) => {
+    (moduleId: string, moduleOrder: number, isCoding: boolean = false) => {
       if (moduleOrder === 1) return true;
-      import('@/lib/content-data').then(({ modules: allModules }) => {
-        const previousModule = allModules.find((m) => m.order === moduleOrder - 1);
+      import('@/lib/content-data').then(({ modules: allModules, codingModules }) => {
+        const targetModules = isCoding ? codingModules : allModules;
+        const previousModule = targetModules.find((m) => m.order === moduleOrder - 1);
         if (!previousModule) return true;
         const prevProgress = progress.get(previousModule.id);
         return prevProgress?.passed ?? false;

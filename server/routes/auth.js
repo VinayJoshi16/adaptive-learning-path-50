@@ -13,7 +13,7 @@ router.post('/signup', async (req, res) => {
       return res.status(503).json({ error: 'Database not connected. Please try again.' });
     }
     const users = db.collection('users');
-    const { email, password, displayName } = req.body;
+    const { email, password, displayName, profilePhotoBase64 } = req.body;
 
     if (!email || !password || !displayName) {
       return res.status(400).json({ error: 'Email, password, and display name are required' });
@@ -29,6 +29,11 @@ router.post('/signup', async (req, res) => {
       email: email.toLowerCase(),
       password: hashedPassword,
       display_name: displayName,
+      profilePhotoBase64: profilePhotoBase64 || null, // Stores face embedding or base64 photo
+      moduleProgress: {},
+      codingPerformance: {},
+      engagementScore: 100,
+      proctoringViolations: [],
       created_at: new Date(),
     });
 

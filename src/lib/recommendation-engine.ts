@@ -9,7 +9,7 @@ export interface RecommendationResult {
 }
 
 // Passing score threshold
-export const PASSING_SCORE = 80;
+export const PASSING_SCORE = 75;
 
 // Rule-based recommendation engine
 export function getRuleBasedRecommendation(
