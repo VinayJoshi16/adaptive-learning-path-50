@@ -7,6 +7,8 @@ import { useModuleProgress } from '@/contexts/ModuleProgressContext';
 import { getQuestionsByModuleId, getModuleByOrder } from '@/lib/content-data';
 import { getRuleBasedRecommendation, getMLBasedRecommendation, PASSING_SCORE } from '@/lib/recommendation-engine';
 import { addSession } from '@/lib/session-store';
+import { FaceVerification } from '@/components/proctoring/FaceVerification';
+import { useProctoring } from '@/hooks/useProctoring';
 import { cn } from '@/lib/utils';
 import { 
   ClipboardList, 
@@ -58,6 +60,13 @@ export default function Quiz() {
 
   const passed = state.quizScore >= PASSING_SCORE;
   const nextModule = state.currentModule ? getModuleByOrder(state.currentModule.order + 1) : null;
+
+  const [isVerified, setIsVerified] = useState(false);
+  const { state: proctoringState, recordViolation } = useProctoring(3, () => {
+    if (!submitted && isVerified) {
+      handleSubmit(); // Auto submit if max warnings reached
+    }
+  });
 
   const handleAnswerChange = (questionId: string, answer: string) => {
     setAnswers(prev => ({ ...prev, [questionId]: answer }));
@@ -127,7 +136,12 @@ export default function Quiz() {
     <div className="min-h-screen py-8">
       <div className="container mx-auto px-4">
         <div className="max-w-3xl mx-auto">
-          {!submitted ? (
+          {!isVerified ? (
+            <FaceVerification 
+              onVerified={() => setIsVerified(true)} 
+              onFailed={() => navigate('/learn')}
+            />
+          ) : !submitted ? (
             // Quiz Form
             <div className="animate-fade-in">
               <div className="text-center mb-8">
@@ -141,6 +155,11 @@ export default function Quiz() {
                 <p className="text-muted-foreground">
                   Answer all questions to receive your personalized recommendation.
                 </p>
+                {proctoringState.warnings > 0 && (
+                  <div className="mt-4 p-3 bg-destructive/10 text-destructive rounded-lg border border-destructive/20 font-medium">
+                    Proctoring Warning: {proctoringState.warnings}/3 violations. Test will auto-submit at 3.
+                  </div>
+                )}
               </div>
 
               {/* Engine Selection */}

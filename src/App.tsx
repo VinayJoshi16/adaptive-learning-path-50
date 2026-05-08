@@ -13,6 +13,7 @@ import Auth from "./pages/Auth";
 import Learn from "./pages/Learn";
 import Quiz from "./pages/Quiz";
 import Dashboard from "./pages/Dashboard";
+import CodingPractice from "./pages/CodingPractice";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -43,6 +44,11 @@ const App = () => (
                   <Route path="/dashboard" element={
                     <ProtectedRoute>
                       <Dashboard />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/practice" element={
+                    <ProtectedRoute>
+                      <CodingPractice />
                     </ProtectedRoute>
                   } />
                   <Route path="*" element={<NotFound />} />

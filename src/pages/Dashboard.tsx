@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { getSessionsByStudent, getSessionStats, clearSessions, LearningSession } from '@/lib/session-store';
 import { useLearning } from '@/contexts/LearningContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { 
   BarChart3, 
@@ -13,7 +14,9 @@ import {
   Calendar,
   Trash2,
   RefreshCw,
-  Loader2
+  Loader2,
+  AlertTriangle,
+  Code
 } from 'lucide-react';
 import {
   LineChart,
@@ -43,6 +46,7 @@ interface SessionStats {
 
 export default function Dashboard() {
   const { state, setStudentId } = useLearning();
+  const { user } = useAuth();
   const [inputId, setInputId] = useState(state.studentId);
   const [sessions, setSessions] = useState<LearningSession[]>([]);
   const [stats, setStats] = useState<SessionStats>({
@@ -152,16 +156,47 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Stats Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          {/* User Stats Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+            <div className="bg-card rounded-xl border border-border shadow-soft p-6">
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-sm text-muted-foreground">Overall Engagement</p>
+                <TrendingUp className="w-4 h-4 text-primary" />
+              </div>
+              <p className="font-display text-3xl font-bold text-foreground">
+                {user?.user_metadata?.engagementScore || 100}%
+              </p>
+            </div>
+            <div className="bg-card rounded-xl border border-border shadow-soft p-6">
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-sm text-muted-foreground">Proctoring Violations</p>
+                <AlertTriangle className="w-4 h-4 text-destructive" />
+              </div>
+              <p className="font-display text-3xl font-bold text-destructive">
+                {user?.user_metadata?.proctoringViolations?.length || 0}
+              </p>
+            </div>
+            <div className="bg-card rounded-xl border border-border shadow-soft p-6">
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-sm text-muted-foreground">Code Submissions</p>
+                <Code className="w-4 h-4 text-accent" />
+              </div>
+              <p className="font-display text-3xl font-bold text-foreground">
+                {Object.keys(user?.user_metadata?.codingPerformance || {}).length}
+              </p>
+            </div>
             <div className="bg-card rounded-xl border border-border shadow-soft p-6">
               <p className="text-sm text-muted-foreground mb-1">Total Sessions</p>
               <p className="font-display text-3xl font-bold text-foreground">
                 {isLoading ? '-' : stats.totalSessions}
               </p>
             </div>
+          </div>
+
+          {/* Session Stats Cards */}
+          <div className="grid grid-cols-3 gap-4 mb-8">
             <div className="bg-card rounded-xl border border-border shadow-soft p-6">
-              <p className="text-sm text-muted-foreground mb-1">Avg Engagement</p>
+              <p className="text-sm text-muted-foreground mb-1">Avg Session Engagement</p>
               <p className="font-display text-3xl font-bold text-primary">
                 {isLoading ? '-' : `${stats.avgEngagement}%`}
               </p>

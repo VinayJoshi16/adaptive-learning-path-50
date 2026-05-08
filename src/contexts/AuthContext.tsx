@@ -4,7 +4,12 @@ import { api, auth } from '@/lib/api';
 export interface User {
   id: string;
   email: string;
-  user_metadata?: { display_name?: string };
+  user_metadata?: { 
+    display_name?: string;
+    engagementScore?: number;
+    proctoringViolations?: string[];
+    codingPerformance?: Record<string, any>;
+  };
 }
 
 interface AuthContextType {

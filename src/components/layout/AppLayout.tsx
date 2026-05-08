@@ -11,7 +11,8 @@ import {
   X,
   LogIn,
   LogOut,
-  User
+  User,
+  Code
 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -31,6 +32,7 @@ interface AppLayoutProps {
 const navItems = [
   { to: '/', label: 'Home', icon: Home },
   { to: '/learn', label: 'Learning', icon: BookOpen },
+  { to: '/practice', label: 'Practice', icon: Code },
   { to: '/quiz', label: 'Quiz', icon: ClipboardList },
   { to: '/dashboard', label: 'Dashboard', icon: BarChart3 },
 ];

@@ -49,7 +49,12 @@ router.post('/signup', async (req, res) => {
       user: {
         id: userId,
         email: email.toLowerCase(),
-        user_metadata: { display_name: displayName },
+        user_metadata: { 
+          display_name: displayName,
+          engagementScore: 100,
+          proctoringViolations: [],
+          codingPerformance: {}
+        },
       },
     });
   } catch (err) {
@@ -93,7 +98,12 @@ router.post('/signin', async (req, res) => {
       user: {
         id: user._id.toString(),
         email: user.email,
-        user_metadata: { display_name: user.display_name },
+        user_metadata: { 
+          display_name: user.display_name,
+          engagementScore: user.engagementScore || 100,
+          proctoringViolations: user.proctoringViolations || [],
+          codingPerformance: user.codingPerformance || {}
+        },
       },
     });
   } catch (err) {
@@ -129,7 +139,12 @@ router.get('/me', async (req, res) => {
       user: {
         id: user._id.toString(),
         email: user.email,
-        user_metadata: { display_name: user.display_name },
+        user_metadata: { 
+          display_name: user.display_name,
+          engagementScore: user.engagementScore || 100,
+          proctoringViolations: user.proctoringViolations || [],
+          codingPerformance: user.codingPerformance || {}
+        },
       },
     });
   } catch {
