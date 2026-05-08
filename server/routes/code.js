@@ -34,8 +34,8 @@ router.post('/execute', async (req, res) => {
       stdin: inputs
     };
 
-    // Public Piston execution engine
-    const response = await fetch('https://emacsx.com/api/v2/execute', {
+    // Public Piston execution engine (official endpoint)
+    const response = await fetch('https://emkc.org/api/v2/piston/execute', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'

@@ -51,6 +51,7 @@ router.post('/signup', async (req, res) => {
         email: email.toLowerCase(),
         user_metadata: { 
           display_name: displayName,
+          profilePhotoBase64: profilePhotoBase64 || null,
           engagementScore: 100,
           proctoringViolations: [],
           codingPerformance: {}
@@ -100,6 +101,7 @@ router.post('/signin', async (req, res) => {
         email: user.email,
         user_metadata: { 
           display_name: user.display_name,
+          profilePhotoBase64: user.profilePhotoBase64 || null,
           engagementScore: user.engagementScore || 100,
           proctoringViolations: user.proctoringViolations || [],
           codingPerformance: user.codingPerformance || {}
@@ -141,6 +143,7 @@ router.get('/me', async (req, res) => {
         email: user.email,
         user_metadata: { 
           display_name: user.display_name,
+          profilePhotoBase64: user.profilePhotoBase64 || null,
           engagementScore: user.engagementScore || 100,
           proctoringViolations: user.proctoringViolations || [],
           codingPerformance: user.codingPerformance || {}

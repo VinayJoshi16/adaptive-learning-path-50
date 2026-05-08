@@ -95,18 +95,39 @@ export function AppLayout({ children }: AppLayoutProps) {
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="sm" className="hidden md:flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-full gradient-primary flex items-center justify-center">
-                        <User className="w-4 h-4 text-primary-foreground" />
-                      </div>
+                      {user.user_metadata?.profilePhotoBase64 ? (
+                        <img
+                          src={user.user_metadata.profilePhotoBase64}
+                          alt="Profile"
+                          className="w-7 h-7 rounded-full object-cover border-2 border-primary/30"
+                        />
+                      ) : (
+                        <div className="w-7 h-7 rounded-full gradient-primary flex items-center justify-center">
+                          <User className="w-4 h-4 text-primary-foreground" />
+                        </div>
+                      )}
                       <span className="max-w-[120px] truncate text-sm">
                         {user.user_metadata?.display_name || user.email?.split('@')[0]}
                       </span>
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48">
-                    <div className="px-2 py-1.5">
-                      <p className="text-sm font-medium">{user.user_metadata?.display_name || 'Student'}</p>
-                      <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <div className="px-2 py-2 flex items-center gap-3">
+                      {user.user_metadata?.profilePhotoBase64 ? (
+                        <img
+                          src={user.user_metadata.profilePhotoBase64}
+                          alt="Profile"
+                          className="w-10 h-10 rounded-full object-cover border-2 border-primary/20 flex-shrink-0"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full gradient-primary flex items-center justify-center flex-shrink-0">
+                          <User className="w-5 h-5 text-primary-foreground" />
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">{user.user_metadata?.display_name || 'Student'}</p>
+                        <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                      </div>
                     </div>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={() => navigate('/dashboard')}>
@@ -174,11 +195,24 @@ export function AppLayout({ children }: AppLayoutProps) {
               <div className="border-t border-border mt-2 pt-2">
                 {user ? (
                   <>
-                    <div className="px-4 py-2">
-                      <p className="text-sm font-medium text-foreground">
-                        {user.user_metadata?.display_name || 'Student'}
-                      </p>
-                      <p className="text-xs text-muted-foreground">{user.email}</p>
+                    <div className="px-4 py-2 flex items-center gap-3">
+                      {user.user_metadata?.profilePhotoBase64 ? (
+                        <img
+                          src={user.user_metadata.profilePhotoBase64}
+                          alt="Profile"
+                          className="w-9 h-9 rounded-full object-cover border-2 border-primary/20 flex-shrink-0"
+                        />
+                      ) : (
+                        <div className="w-9 h-9 rounded-full gradient-primary flex items-center justify-center flex-shrink-0">
+                          <User className="w-4 h-4 text-primary-foreground" />
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">
+                          {user.user_metadata?.display_name || 'Student'}
+                        </p>
+                        <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                      </div>
                     </div>
                     <button
                       onClick={() => {

@@ -6,6 +6,7 @@ export interface User {
   email: string;
   user_metadata?: { 
     display_name?: string;
+    profilePhotoBase64?: string | null;
     engagementScore?: number;
     proctoringViolations?: string[];
     codingPerformance?: Record<string, any>;
