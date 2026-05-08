@@ -155,7 +155,8 @@ function ModulesTab({ dark }: { dark: boolean }) {
   const [modules, setModules] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ title: '', level: 'beginner', contentType: 'general', description: '', content: '', duration: '10', order: '1', topics: '' });
+  const [form, setForm] = useState({ title: '', level: 'beginner', contentType: 'general', description: '', content: '', duration: '10', order: '1', topics: '', videoUrl: '', youtubeUrl: '' });
+  const [expandedModule, setExpandedModule] = useState<string | null>(null);
 
   const load = useCallback(() => { setLoading(true); adminFetch('/admin/modules').then(d => setModules(d.modules || [])).catch(() => {}).finally(() => setLoading(false)); }, []);
   useEffect(load, [load]);
@@ -164,7 +165,7 @@ function ModulesTab({ dark }: { dark: boolean }) {
     e.preventDefault();
     try {
       await adminFetch('/admin/modules', { method: 'POST', body: JSON.stringify({ ...form, duration: Number(form.duration), order: Number(form.order), topics: form.topics.split(',').map(t => t.trim()).filter(Boolean) }) });
-      toast.success('Module created'); setShowForm(false); setForm({ title: '', level: 'beginner', contentType: 'general', description: '', content: '', duration: '10', order: '1', topics: '' }); load();
+      toast.success('Module created'); setShowForm(false); setForm({ title: '', level: 'beginner', contentType: 'general', description: '', content: '', duration: '10', order: '1', topics: '', videoUrl: '', youtubeUrl: '' }); load();
     } catch (err: any) { toast.error(err.message); }
   };
 
@@ -205,26 +206,156 @@ function ModulesTab({ dark }: { dark: boolean }) {
           <div><label className={labelCls}>Description</label><input className={inputCls} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} required /></div>
           <div><label className={labelCls}>Topics (comma-separated)</label><input className={inputCls} value={form.topics} onChange={e => setForm({ ...form, topics: e.target.value })} placeholder="Topic 1, Topic 2" /></div>
           <div><label className={labelCls}>Content</label><textarea rows={5} className={inputCls} value={form.content} onChange={e => setForm({ ...form, content: e.target.value })} required /></div>
+          <div className={`rounded-lg border p-3 space-y-3 ${dark ? 'border-white/10' : 'border-gray-200'}`}>
+            <p className={`text-xs font-semibold uppercase tracking-wider ${dark ? 'text-slate-400' : 'text-gray-500'}`}>🎬 Video Lectures (optional)</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div><label className={labelCls}>Video URL</label><input className={inputCls} value={form.videoUrl} onChange={e => setForm({ ...form, videoUrl: e.target.value })} placeholder="https://example.com/video.mp4" /></div>
+              <div><label className={labelCls}>YouTube URL</label><input className={inputCls} value={form.youtubeUrl} onChange={e => setForm({ ...form, youtubeUrl: e.target.value })} placeholder="https://youtube.com/watch?v=..." /></div>
+            </div>
+          </div>
           <button type="submit" className="px-5 py-2 rounded-lg bg-gradient-to-r from-amber-500 to-orange-600 text-white text-sm font-medium hover:opacity-90">Create Module</button>
         </form>
       )}
 
       {loading ? <p className={dark ? 'text-slate-400' : 'text-gray-500'}>Loading…</p> : (
-        <DataTable dark={dark} onDelete={handleDelete} emptyMsg="No modules created yet. Click 'Add Module' to start."
-          columns={[
-            { key: 'title', label: 'Title' },
-            { key: 'contentType', label: 'Type', render: (r: any) => <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${r.contentType === 'general' ? 'bg-blue-500/10 text-blue-400' : r.contentType === 'coding' ? 'bg-violet-500/10 text-violet-400' : 'bg-cyan-500/10 text-cyan-400'}`}>{r.contentType === 'general' ? '📘 General' : r.contentType === 'coding' ? '💻 Coding' : '📝 Practice'}</span> },
-            { key: 'level', label: 'Level', render: (r: any) => <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${r.level === 'beginner' ? 'bg-green-500/10 text-green-400' : r.level === 'intermediate' ? 'bg-amber-500/10 text-amber-400' : 'bg-red-500/10 text-red-400'}`}>{r.level}</span> },
-            { key: 'duration', label: 'Duration', render: (r: any) => `${r.duration} min` },
-            { key: 'topics', label: 'Topics', render: (r: any) => (r.topics || []).join(', ') || '—' },
-            { key: 'createdAt', label: 'Created', render: (r: any) => r.createdAt ? new Date(r.createdAt).toLocaleDateString() : '—' },
-          ]}
-          data={modules}
-        />
+        <div className="space-y-3">
+          {modules.length === 0 && <p className={`text-center py-8 ${dark ? 'text-slate-500' : 'text-gray-400'}`}>No modules created yet. Click 'Add Module' to start.</p>}
+          {modules.map(mod => (
+            <div key={mod.id} className={`rounded-xl border overflow-hidden ${dark ? 'bg-white/5 border-white/10' : 'bg-white border-gray-200 shadow-sm'}`}>
+              <div className="flex items-center justify-between px-4 py-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${mod.contentType === 'general' ? 'bg-blue-500/10 text-blue-400' : mod.contentType === 'coding' ? 'bg-violet-500/10 text-violet-400' : 'bg-cyan-500/10 text-cyan-400'}`}>
+                    {mod.contentType === 'general' ? '📘' : mod.contentType === 'coding' ? '💻' : '📝'}
+                  </span>
+                  <span className={`font-medium text-sm truncate ${dark ? 'text-white' : 'text-gray-900'}`}>{mod.title}</span>
+                  <span className={`px-2 py-0.5 rounded-full text-xs ${mod.level === 'beginner' ? 'bg-green-500/10 text-green-400' : mod.level === 'intermediate' ? 'bg-amber-500/10 text-amber-400' : 'bg-red-500/10 text-red-400'}`}>{mod.level}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setExpandedModule(expandedModule === mod.id ? null : mod.id)}
+                    className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${expandedModule === mod.id ? 'bg-amber-500/20 text-amber-400' : `${dark ? 'text-slate-400 hover:bg-white/10' : 'text-gray-500 hover:bg-gray-100'}`}`}>
+                    {expandedModule === mod.id ? '▼ Close Topics' : '▶ Manage Topics'}
+                  </button>
+                  <button onClick={() => handleDelete(mod)} className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10"><Trash2 className="w-3.5 h-3.5" /></button>
+                </div>
+              </div>
+              {expandedModule === mod.id && <SubpartManager dark={dark} moduleId={mod.id} moduleTitle={mod.title} />}
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
 }
+
+/* ════════════════════ Subpart Manager (inside Modules) ════════════════════ */
+
+function SubpartManager({ dark, moduleId, moduleTitle }: { dark: boolean; moduleId: string; moduleTitle: string }) {
+  const [subparts, setSubparts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ title: '', content: '', order: '1', quizQuestion: '', quizA: '', quizB: '', quizC: '', quizD: '', quizCorrect: 'b', codingQ: '', videoUrl: '', youtubeUrl: '' });
+
+  const inputCls = `w-full px-3 py-2 rounded-lg text-sm border ${dark ? 'bg-white/5 border-white/10 text-white placeholder-slate-500' : 'bg-white border-gray-200 text-gray-900'} focus:outline-none focus:ring-2 focus:ring-amber-500/40`;
+  const labelCls = `block text-sm font-medium mb-1 ${dark ? 'text-slate-300' : 'text-gray-700'}`;
+
+  const load = useCallback(() => { setLoading(true); adminFetch(`/admin/subparts/${moduleId}`).then(d => setSubparts(d.subparts || [])).catch(() => {}).finally(() => setLoading(false)); }, [moduleId]);
+  useEffect(load, [load]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const quizQuestions = form.quizQuestion ? [{
+      question: form.quizQuestion,
+      options: { a: form.quizA, b: form.quizB, c: form.quizC, d: form.quizD },
+      correctOption: form.quizCorrect,
+    }] : [];
+    const codingQuestions = form.codingQ ? [{ question: form.codingQ }] : [];
+    try {
+      await adminFetch('/admin/subparts', { method: 'POST', body: JSON.stringify({ moduleId, title: form.title, content: form.content, order: Number(form.order), quizQuestions, codingQuestions, videoUrl: form.videoUrl, youtubeUrl: form.youtubeUrl }) });
+      toast.success('Topic created'); setShowForm(false);
+      setForm({ title: '', content: '', order: String(subparts.length + 2), quizQuestion: '', quizA: '', quizB: '', quizC: '', quizD: '', quizCorrect: 'b', codingQ: '', videoUrl: '', youtubeUrl: '' });
+      load();
+    } catch (err: any) { toast.error(err.message); }
+  };
+
+  const handleDelete = async (s: any) => {
+    if (!confirm(`Delete topic "${s.title}"?`)) return;
+    try { await adminFetch(`/admin/subparts/${s.id}`, { method: 'DELETE' }); toast.success('Deleted'); load(); } catch { toast.error('Failed'); }
+  };
+
+  return (
+    <div className={`border-t px-4 py-4 space-y-3 ${dark ? 'border-white/10 bg-white/[0.02]' : 'border-gray-100 bg-gray-50/50'}`}>
+      <div className="flex items-center justify-between">
+        <h4 className={`text-sm font-semibold ${dark ? 'text-slate-300' : 'text-gray-700'}`}>Topics in "{moduleTitle}"</h4>
+        <button onClick={() => { setShowForm(!showForm); setForm(f => ({ ...f, order: String(subparts.length + 1) })); }}
+          className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 text-xs font-medium hover:bg-emerald-500/20 transition-colors">
+          {showForm ? <X className="w-3 h-3" /> : <Plus className="w-3 h-3" />} {showForm ? 'Cancel' : 'Add Topic'}
+        </button>
+      </div>
+
+      {showForm && (
+        <form onSubmit={handleSubmit} className={`rounded-lg border p-4 space-y-3 ${dark ? 'bg-white/5 border-white/10' : 'bg-white border-gray-200'}`}>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="md:col-span-2"><label className={labelCls}>Topic Title</label><input className={inputCls} value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="e.g. Introduction to Python" required /></div>
+            <div><label className={labelCls}>Order</label><input type="number" className={inputCls} value={form.order} onChange={e => setForm({ ...form, order: e.target.value })} /></div>
+          </div>
+          <div><label className={labelCls}>Topic Content</label><textarea rows={4} className={inputCls} value={form.content} onChange={e => setForm({ ...form, content: e.target.value })} placeholder="Write the learning content for this topic..." required /></div>
+
+          <div className={`rounded-lg border p-3 space-y-3 ${dark ? 'border-white/10' : 'border-gray-200'}`}>
+            <p className={`text-xs font-semibold uppercase tracking-wider ${dark ? 'text-slate-400' : 'text-gray-500'}`}>📋 Quiz Question (optional)</p>
+            <input className={inputCls} value={form.quizQuestion} onChange={e => setForm({ ...form, quizQuestion: e.target.value })} placeholder="Enter a quiz question..." />
+            {form.quizQuestion && (
+              <div className="grid grid-cols-2 gap-2">
+                <input className={inputCls} value={form.quizA} onChange={e => setForm({ ...form, quizA: e.target.value })} placeholder="Option A" />
+                <input className={inputCls} value={form.quizB} onChange={e => setForm({ ...form, quizB: e.target.value })} placeholder="Option B" />
+                <input className={inputCls} value={form.quizC} onChange={e => setForm({ ...form, quizC: e.target.value })} placeholder="Option C" />
+                <input className={inputCls} value={form.quizD} onChange={e => setForm({ ...form, quizD: e.target.value })} placeholder="Option D" />
+                <div><label className={labelCls}>Correct Answer</label>
+                  <select className={inputCls} value={form.quizCorrect} onChange={e => setForm({ ...form, quizCorrect: e.target.value })}>
+                    <option value="a">A</option><option value="b">B</option><option value="c">C</option><option value="d">D</option>
+                  </select>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className={`rounded-lg border p-3 space-y-2 ${dark ? 'border-white/10' : 'border-gray-200'}`}>
+            <p className={`text-xs font-semibold uppercase tracking-wider ${dark ? 'text-slate-400' : 'text-gray-500'}`}>💻 Coding Question (optional)</p>
+            <textarea rows={2} className={inputCls} value={form.codingQ} onChange={e => setForm({ ...form, codingQ: e.target.value })} placeholder="e.g. Write a function that returns the sum of two numbers..." />
+          </div>
+
+          <div className={`rounded-lg border p-3 space-y-2 ${dark ? 'border-white/10' : 'border-gray-200'}`}>
+            <p className={`text-xs font-semibold uppercase tracking-wider ${dark ? 'text-slate-400' : 'text-gray-500'}`}>🎬 Video Lectures (optional)</p>
+            <div className="grid grid-cols-2 gap-2">
+              <input className={inputCls} value={form.videoUrl} onChange={e => setForm({ ...form, videoUrl: e.target.value })} placeholder="Video URL (mp4, webm...)" />
+              <input className={inputCls} value={form.youtubeUrl} onChange={e => setForm({ ...form, youtubeUrl: e.target.value })} placeholder="YouTube URL" />
+            </div>
+          </div>
+
+          <button type="submit" className="px-4 py-1.5 rounded-lg bg-emerald-500 text-white text-sm font-medium hover:bg-emerald-600 transition-colors">Create Topic</button>
+        </form>
+      )}
+
+      {loading ? <p className={`text-xs ${dark ? 'text-slate-500' : 'text-gray-400'}`}>Loading topics…</p> : subparts.length === 0 ? (
+        <p className={`text-xs text-center py-4 ${dark ? 'text-slate-500' : 'text-gray-400'}`}>No topics yet. Click "Add Topic" to create subparts for this module.</p>
+      ) : (
+        <div className="space-y-1.5">
+          {subparts.map((s, i) => (
+            <div key={s.id} className={`flex items-center justify-between px-3 py-2 rounded-lg ${dark ? 'bg-white/5 hover:bg-white/10' : 'bg-white hover:bg-gray-50'} transition-colors`}>
+              <div className="flex items-center gap-3 min-w-0">
+                <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${dark ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-700'}`}>{s.order}</span>
+                <span className={`text-sm truncate ${dark ? 'text-slate-300' : 'text-gray-700'}`}>{s.title}</span>
+                {(s.quizQuestions || []).length > 0 && <span className="px-1.5 py-0.5 rounded text-[10px] bg-blue-500/10 text-blue-400">Quiz</span>}
+                {(s.codingQuestions || []).length > 0 && <span className="px-1.5 py-0.5 rounded text-[10px] bg-violet-500/10 text-violet-400">Code</span>}
+              </div>
+              <button onClick={() => handleDelete(s)} className="p-1 rounded text-red-400 hover:bg-red-500/10"><Trash2 className="w-3 h-3" /></button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 
 function ProctoringTab({ dark }: { dark: boolean }) {
   const [logs, setLogs] = useState<any[]>([]);

@@ -10,110 +10,100 @@ interface EngagementState {
   modelLoaded: boolean;
 }
 
+// Singleton: load model once and reuse across component lifecycles
+let globalDetector: faceLandmarksDetection.FaceLandmarksDetector | null = null;
+let modelLoadingPromise: Promise<boolean> | null = null;
+
+async function ensureModelLoaded(): Promise<boolean> {
+  if (globalDetector) return true;
+  if (modelLoadingPromise) return modelLoadingPromise;
+
+  modelLoadingPromise = (async () => {
+    try {
+      await tf.ready();
+      // Try webgl first, fall back to cpu
+      try { await tf.setBackend('webgl'); } catch { await tf.setBackend('cpu'); }
+
+      const model = faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh;
+      globalDetector = await faceLandmarksDetection.createDetector(model, {
+        runtime: 'tfjs',
+        refineLandmarks: false, // FAST: skip iris refinement (saves ~40% load time)
+        maxFaces: 1,
+      });
+      console.log('Face detection model loaded');
+      return true;
+    } catch (err) {
+      console.error('Model load failed:', err);
+      modelLoadingPromise = null;
+      return false;
+    }
+  })();
+
+  return modelLoadingPromise;
+}
+
+// Preload model immediately on import (background)
+ensureModelLoaded();
+
 export function useEngagementTracker() {
   const [state, setState] = useState<EngagementState>({
     isTracking: false,
     currentScore: 0,
     faceDetected: false,
     attentionState: 'unknown',
-    modelLoaded: false,
+    modelLoaded: !!globalDetector,
   });
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const detectorRef = useRef<faceLandmarksDetection.FaceLandmarksDetector | null>(null);
   const frameCountRef = useRef(0);
   const attentiveFramesRef = useRef(0);
-  const animationFrameRef = useRef<number | null>(null);
+  const intervalRef = useRef<number | null>(null);
   const isTrackingRef = useRef(false);
 
-  const loadModel = useCallback(async () => {
-    try {
-      await tf.ready();
-      await tf.setBackend('webgl');
-      
-      const model = faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh;
-      const detector = await faceLandmarksDetection.createDetector(model, {
-        runtime: 'tfjs',
-        refineLandmarks: true,
-        maxFaces: 1,
-      });
-      
-      detectorRef.current = detector;
+  // Check if model finished preloading
+  useEffect(() => {
+    if (globalDetector) {
       setState(prev => ({ ...prev, modelLoaded: true }));
-      console.log('Face detection model loaded successfully');
-      return true;
-    } catch (error) {
-      console.error('Failed to load face detection model:', error);
-      return false;
     }
   }, []);
 
   const calculateHeadPose = (landmarks: faceLandmarksDetection.Keypoint[]) => {
-    // Key facial landmarks for head pose estimation
-    const noseTip = landmarks[1]; // Nose tip
-    const leftEye = landmarks[33]; // Left eye inner corner
-    const rightEye = landmarks[263]; // Right eye inner corner
-    const leftMouth = landmarks[61]; // Left mouth corner
-    const rightMouth = landmarks[291]; // Right mouth corner
-    
+    const noseTip = landmarks[1];
+    const leftEye = landmarks[33];
+    const rightEye = landmarks[263];
+
     if (!noseTip || !leftEye || !rightEye) {
-      return { yaw: 0, isLookingAtScreen: false };
+      return { isLookingAtScreen: false };
     }
 
-    // Calculate eye center
     const eyeCenterX = (leftEye.x + rightEye.x) / 2;
     const eyeWidth = Math.abs(rightEye.x - leftEye.x);
-    
-    // Estimate yaw (left-right rotation) based on nose position relative to eye center
     const noseOffset = noseTip.x - eyeCenterX;
-    const yaw = (noseOffset / eyeWidth) * 100; // Normalize to percentage
-    
-    // Calculate mouth width for additional reference
-    let mouthWidth = 0;
-    if (leftMouth && rightMouth) {
-      mouthWidth = Math.abs(rightMouth.x - leftMouth.x);
-    }
-    
-    // Determine if looking at screen (yaw within threshold)
-    const yawThreshold = 25; // Allow some head movement
-    const isLookingAtScreen = Math.abs(yaw) < yawThreshold;
-    
-    return { yaw, isLookingAtScreen, eyeWidth, mouthWidth };
+    const yaw = (noseOffset / eyeWidth) * 100;
+
+    return { isLookingAtScreen: Math.abs(yaw) < 25 };
   };
 
-  const detectEngagement = useCallback(async () => {
-    if (!videoRef.current || !detectorRef.current || !isTrackingRef.current) {
-      return;
-    }
+  const detectOnce = useCallback(async () => {
+    if (!videoRef.current || !globalDetector || !isTrackingRef.current) return;
+    const video = videoRef.current;
+    if (video.readyState < 2) return;
 
     try {
-      const video = videoRef.current;
-      
-      if (video.readyState < 2) {
-        animationFrameRef.current = requestAnimationFrame(detectEngagement);
-        return;
-      }
-
-      const faces = await detectorRef.current.estimateFaces(video, {
-        flipHorizontal: false,
-      });
-
+      const faces = await globalDetector.estimateFaces(video, { flipHorizontal: false });
       const faceDetected = faces.length > 0;
       let attentive = false;
 
       if (faceDetected && faces[0].keypoints) {
-        const { isLookingAtScreen } = calculateHeadPose(faces[0].keypoints);
-        attentive = isLookingAtScreen;
+        attentive = calculateHeadPose(faces[0].keypoints).isLookingAtScreen;
       }
 
       frameCountRef.current += 1;
-      if (attentive) {
-        attentiveFramesRef.current += 1;
-      }
+      if (attentive) attentiveFramesRef.current += 1;
 
-      const score = frameCountRef.current > 0 
+      const score = frameCountRef.current > 0
         ? Math.round((attentiveFramesRef.current / frameCountRef.current) * 100)
         : 0;
 
@@ -123,33 +113,26 @@ export function useEngagementTracker() {
         attentionState: attentive ? 'attentive' : faceDetected ? 'distracted' : 'unknown',
         currentScore: score,
       }));
-
-      if (isTrackingRef.current) {
-        animationFrameRef.current = requestAnimationFrame(detectEngagement);
-      }
-    } catch (error) {
-      console.error('Face detection error:', error);
-      if (isTrackingRef.current) {
-        animationFrameRef.current = requestAnimationFrame(detectEngagement);
-      }
+    } catch (err) {
+      // Silently continue
     }
   }, []);
 
   const startTracking = useCallback(async () => {
     try {
-      // Load model if not already loaded
-      if (!detectorRef.current) {
-        setState(prev => ({ ...prev, isTracking: true }));
-        const loaded = await loadModel();
-        if (!loaded) {
-          console.error('Could not load face detection model');
-          setState(prev => ({ ...prev, isTracking: false }));
-          return;
-        }
-      }
+      setState(prev => ({ ...prev, isTracking: true }));
 
+      // Load model (fast if already preloaded)
+      const loaded = await ensureModelLoaded();
+      if (!loaded) {
+        setState(prev => ({ ...prev, isTracking: false }));
+        return;
+      }
+      setState(prev => ({ ...prev, modelLoaded: true }));
+
+      // Use low resolution for speed
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 640, height: 480, facingMode: 'user' },
+        video: { width: 320, height: 240, facingMode: 'user', frameRate: { ideal: 15 } },
       });
 
       streamRef.current = stream;
@@ -160,15 +143,14 @@ export function useEngagementTracker() {
       }
 
       isTrackingRef.current = true;
-      setState(prev => ({ ...prev, isTracking: true }));
 
-      // Start detection loop
-      detectEngagement();
+      // Detect every 500ms instead of every frame (~60fps → 2fps = 30x less CPU)
+      intervalRef.current = window.setInterval(detectOnce, 500);
     } catch (error) {
       console.error('Failed to start webcam:', error);
       setState(prev => ({ ...prev, isTracking: false }));
     }
-  }, [loadModel, detectEngagement]);
+  }, [detectOnce]);
 
   const stopTracking = useCallback(() => {
     isTrackingRef.current = false;
@@ -178,9 +160,9 @@ export function useEngagementTracker() {
       streamRef.current = null;
     }
 
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-      animationFrameRef.current = null;
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
     }
 
     const finalScore = state.currentScore;
@@ -192,7 +174,6 @@ export function useEngagementTracker() {
       attentionState: 'unknown',
     }));
 
-    // Reset counters
     frameCountRef.current = 0;
     attentiveFramesRef.current = 0;
 
@@ -211,8 +192,8 @@ export function useEngagementTracker() {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
       }
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
       }
     };
   }, []);
@@ -226,3 +207,4 @@ export function useEngagementTracker() {
     resetTracking,
   };
 }
+

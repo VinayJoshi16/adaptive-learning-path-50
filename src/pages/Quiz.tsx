@@ -52,6 +52,24 @@ export default function Quiz() {
   const questions = useMemo(() => {
     if (!state.currentModule) return [];
     
+    // Check for subpart-specific quiz questions (stored by Learn page)
+    try {
+      const subpartQuiz = localStorage.getItem('active_subpart_quiz');
+      if (subpartQuiz) {
+        const parsed = JSON.parse(subpartQuiz);
+        if (parsed.length > 0) {
+          return parsed.map((q: any, i: number) => ({
+            id: `subpart-q-${i}`,
+            moduleId: state.currentModule!.id,
+            question: q.question,
+            options: q.options || { a: '', b: '', c: '', d: '' },
+            correctOption: (q.correctOption || 'b') as 'a' | 'b' | 'c' | 'd',
+            topic: state.currentModule!.topics?.[0] || state.currentModule!.title,
+          }));
+        }
+      }
+    } catch {}
+
     // Try hardcoded questions first
     const hardcoded = getQuestionsByModuleId(state.currentModule.id);
     if (hardcoded.length > 0) return hardcoded;
@@ -59,7 +77,6 @@ export default function Quiz() {
     // For admin-created modules: auto-generate questions from topics
     const topics = state.currentModule.topics || [];
     if (topics.length === 0) {
-      // Fallback: generate a single generic question from the module title
       return [{
         id: `auto-1-${state.currentModule.id}`,
         moduleId: state.currentModule.id,
@@ -155,11 +172,16 @@ export default function Quiz() {
     }
 
     revokeQuizAccess(); // Must go through Learn again to take another quiz
+    // Clean up subpart quiz data
+    localStorage.removeItem('active_subpart_quiz');
+    localStorage.removeItem('active_subpart_id');
     setIsSubmitting(false);
     setSubmitted(true);
   };
 
   const handleRestart = () => {
+    localStorage.removeItem('active_subpart_quiz');
+    localStorage.removeItem('active_subpart_id');
     resetSession();
     navigate('/learn');
   };

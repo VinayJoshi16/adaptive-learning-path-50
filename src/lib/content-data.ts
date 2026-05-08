@@ -8,6 +8,8 @@ export interface Module {
   duration: number; // in minutes
   order: number; // Sequential order for unlocking
   topics: string[]; // Topic areas covered in this module
+  videoUrl?: string; // Direct video URL (mp4, webm)
+  youtubeUrl?: string; // YouTube video URL
 }
 
 export interface QuizQuestion {

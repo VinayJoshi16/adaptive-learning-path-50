@@ -25,6 +25,8 @@ router.get('/modules/public', async (req, res) => {
         order: m.order || 1,
         topics: m.topics || [],
         contentType: m.contentType || 'general',
+        videoUrl: m.videoUrl || '',
+        youtubeUrl: m.youtubeUrl || '',
       })),
     });
   } catch (err) {
@@ -248,7 +250,7 @@ router.post('/modules', adminMiddleware, async (req, res) => {
   try {
     const db = getDB();
     const modules = db.collection('admin_modules');
-    const { title, level, description, content, duration, order, topics, contentType } = req.body;
+    const { title, level, description, content, duration, order, topics, contentType, videoUrl, youtubeUrl } = req.body;
 
     if (!title || !level || !description || !content) {
       return res.status(400).json({ error: 'Title, level, description, and content are required' });
@@ -263,6 +265,8 @@ router.post('/modules', adminMiddleware, async (req, res) => {
       duration: Number(duration) || 10,
       order: Number(order) || 1,
       topics: topics || [],
+      videoUrl: videoUrl || '',
+      youtubeUrl: youtubeUrl || '',
       created_at: new Date(),
       updated_at: new Date(),
     };
@@ -391,6 +395,125 @@ router.get('/quiz-results', adminMiddleware, async (req, res) => {
   } catch (err) {
     console.error('Admin quiz results error:', err);
     res.status(500).json({ error: 'Failed to fetch quiz results' });
+  }
+});
+
+/* ──────────────── Subparts / Topics ──────────────── */
+
+// Public: get subparts for a module (students)
+router.get('/subparts/public/:moduleId', async (req, res) => {
+  try {
+    const db = getDB();
+    if (!db) return res.json({ subparts: [] });
+    const subparts = db.collection('admin_subparts');
+    const docs = await subparts.find({ moduleId: req.params.moduleId }).sort({ order: 1 }).toArray();
+    res.json({
+      subparts: docs.map(s => ({
+        id: s._id.toString(),
+        moduleId: s.moduleId,
+        title: s.title,
+        content: s.content,
+        order: s.order || 1,
+        quizQuestions: s.quizQuestions || [],
+        codingQuestions: s.codingQuestions || [],
+        videoUrl: s.videoUrl || '',
+        youtubeUrl: s.youtubeUrl || '',
+      })),
+    });
+  } catch (err) {
+    console.error('Public subparts error:', err);
+    res.json({ subparts: [] });
+  }
+});
+
+// Admin: list subparts for a module
+router.get('/subparts/:moduleId', adminMiddleware, async (req, res) => {
+  try {
+    const db = getDB();
+    const subparts = db.collection('admin_subparts');
+    const docs = await subparts.find({ moduleId: req.params.moduleId }).sort({ order: 1 }).toArray();
+    res.json({
+      subparts: docs.map(s => ({
+        id: s._id.toString(),
+        moduleId: s.moduleId,
+        title: s.title,
+        content: s.content,
+        order: s.order,
+        quizQuestions: s.quizQuestions || [],
+        codingQuestions: s.codingQuestions || [],
+        createdAt: s.created_at,
+      })),
+    });
+  } catch (err) {
+    console.error('Admin subparts error:', err);
+    res.status(500).json({ error: 'Failed to fetch subparts' });
+  }
+});
+
+// Admin: create subpart
+router.post('/subparts', adminMiddleware, async (req, res) => {
+  try {
+    const db = getDB();
+    const subparts = db.collection('admin_subparts');
+    const { moduleId, title, content, order, quizQuestions, codingQuestions, videoUrl, youtubeUrl } = req.body;
+
+    if (!moduleId || !title || !content) {
+      return res.status(400).json({ error: 'moduleId, title, and content are required' });
+    }
+
+    const doc = {
+      moduleId,
+      title,
+      content,
+      order: Number(order) || 1,
+      quizQuestions: quizQuestions || [],
+      codingQuestions: codingQuestions || [],
+      videoUrl: videoUrl || '',
+      youtubeUrl: youtubeUrl || '',
+      created_at: new Date(),
+      updated_at: new Date(),
+    };
+
+    const result = await subparts.insertOne(doc);
+    res.status(201).json({ id: result.insertedId.toString(), ...doc, message: 'Subpart created' });
+  } catch (err) {
+    console.error('Admin create subpart error:', err);
+    res.status(500).json({ error: 'Failed to create subpart' });
+  }
+});
+
+// Admin: update subpart
+router.put('/subparts/:id', adminMiddleware, async (req, res) => {
+  try {
+    const db = getDB();
+    const subparts = db.collection('admin_subparts');
+    const { title, content, order, quizQuestions, codingQuestions } = req.body;
+
+    const update = { updated_at: new Date() };
+    if (title) update.title = title;
+    if (content) update.content = content;
+    if (order != null) update.order = Number(order);
+    if (quizQuestions) update.quizQuestions = quizQuestions;
+    if (codingQuestions) update.codingQuestions = codingQuestions;
+
+    await subparts.updateOne({ _id: new ObjectId(req.params.id) }, { $set: update });
+    res.json({ ok: true, message: 'Subpart updated' });
+  } catch (err) {
+    console.error('Admin update subpart error:', err);
+    res.status(500).json({ error: 'Failed to update subpart' });
+  }
+});
+
+// Admin: delete subpart
+router.delete('/subparts/:id', adminMiddleware, async (req, res) => {
+  try {
+    const db = getDB();
+    const subparts = db.collection('admin_subparts');
+    await subparts.deleteOne({ _id: new ObjectId(req.params.id) });
+    res.json({ ok: true, message: 'Subpart deleted' });
+  } catch (err) {
+    console.error('Admin delete subpart error:', err);
+    res.status(500).json({ error: 'Failed to delete subpart' });
   }
 });
 

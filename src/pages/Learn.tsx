@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ModuleCard } from '@/components/ui/module-card';
@@ -12,10 +12,32 @@ import { useModuleProgress } from '@/contexts/ModuleProgressContext';
 import { useEngagementTracker } from '@/hooks/use-engagement-tracker';
 import { useEngagementIntervention } from '@/hooks/use-engagement-intervention';
 import { 
-  BookOpen, Play, Square, Eye, EyeOff, Camera, AlertCircle, CheckCircle, Loader2, Lock
+  BookOpen, Play, Square, Eye, EyeOff, Camera, AlertCircle, CheckCircle, Loader2, Lock, ChevronLeft, List, PauseCircle, VideoIcon
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
+import { useRef } from 'react';
+
+interface Subpart {
+  id: string;
+  moduleId: string;
+  title: string;
+  content: string;
+  order: number;
+  quizQuestions: any[];
+  codingQuestions: any[];
+  videoUrl?: string;
+  youtubeUrl?: string;
+}
+
+/** Extract YouTube video ID from various URL formats */
+function getYouTubeId(url: string): string | null {
+  if (!url) return null;
+  const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|v\/))([\w-]{11})/);
+  return m ? m[1] : null;
+}
+
+const ATTENTION_THRESHOLD = 65;
 
 export default function Learn() {
   const navigate = useNavigate();
@@ -36,6 +58,31 @@ export default function Learn() {
     const adminGeneral = adminModules.filter(m => (m as any).contentType === 'general').map((m, i) => ({ ...m, order: modules.length + i + 1 }));
     return [...modules, ...adminGeneral];
   }, [adminModules]);
+
+  // Subpart state
+  const [subparts, setSubparts] = useState<Subpart[]>([]);
+  const [activeSubpart, setActiveSubpart] = useState<Subpart | null>(null);
+  const [showSubpartView, setShowSubpartView] = useState(false);
+  const [subpartProgress, setSubpartProgress] = useState<Record<string, boolean>>(() => {
+    try { return JSON.parse(localStorage.getItem('subpart_progress') || '{}'); } catch { return {}; }
+  });
+
+  const saveSubpartProgress = useCallback((id: string) => {
+    setSubpartProgress(prev => {
+      const next = { ...prev, [id]: true };
+      localStorage.setItem('subpart_progress', JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
+  const fetchSubparts = useCallback(async (moduleId: string) => {
+    const API = import.meta.env.VITE_API_URL || '/api';
+    try {
+      const r = await fetch(`${API}/admin/subparts/public/${moduleId}`);
+      const d = await r.json();
+      return d.subparts || [];
+    } catch { return []; }
+  }, []);
 
   const allCodingModules = useMemo(() => {
     const adminCoding = adminModules.filter(m => (m as any).contentType === 'coding').map((m, i) => ({ ...m, order: codingModules.length + i + 1 }));
@@ -70,18 +117,61 @@ export default function Learn() {
     return prevProgress?.passed ?? false;
   };
 
-  const handleModuleSelect = (moduleId: string) => {
+  const handleModuleSelect = async (moduleId: string) => {
     const module = allGeneralModules.find(m => m.id === moduleId) || allCodingModules.find(m => m.id === moduleId);
     const isCoding = allCodingModules.some(m => m.id === moduleId);
     const isAdmin = adminModules.some(m => m.id === moduleId);
     if (module && (isAdmin || isModuleUnlocked(module.order, isCoding))) {
-      // Pass full object for admin modules (not in hardcoded data), ID for built-in modules
       if (isAdmin) {
+        // Check for subparts
+        const subs = await fetchSubparts(moduleId);
+        if (subs.length > 0) {
+          setSubparts(subs);
+          setActiveSubpart(null);
+          setShowSubpartView(true);
+          selectModule(module);
+          return;
+        }
         selectModule(module);
       } else {
         selectModule(moduleId);
       }
     }
+  };
+
+  const handleSubpartSelect = (subpart: Subpart) => {
+    setActiveSubpart(subpart);
+    // Store subpart quiz questions for Quiz page to pick up
+    if (subpart.quizQuestions && subpart.quizQuestions.length > 0) {
+      localStorage.setItem('active_subpart_quiz', JSON.stringify(subpart.quizQuestions));
+    } else {
+      localStorage.removeItem('active_subpart_quiz');
+    }
+    localStorage.setItem('active_subpart_id', subpart.id);
+    // Override currentModule content with subpart content (including videos)
+    if (state.currentModule) {
+      selectModule({
+        ...state.currentModule,
+        title: `${state.currentModule.title} — ${subpart.title}`,
+        content: subpart.content,
+        topics: [subpart.title],
+        videoUrl: subpart.videoUrl || '',
+        youtubeUrl: subpart.youtubeUrl || '',
+      } as Module);
+    }
+    setShowSubpartView(false);
+  };
+
+  const isSubpartUnlocked = (subpart: Subpart, index: number) => {
+    if (index === 0) return true;
+    // Previous subpart must be completed
+    const prev = subparts[index - 1];
+    return prev ? !!subpartProgress[prev.id] : true;
+  };
+
+  const handleBackToSubparts = () => {
+    setShowSubpartView(true);
+    setActiveSubpart(null);
   };
 
   const handleStartLearning = async () => {
@@ -92,7 +182,11 @@ export default function Learn() {
   const handleFinishLearning = () => {
     const finalScore = stopTracking();
     finishLearning(finalScore);
-    grantQuizAccess(); // Only way to get quiz access: must click "Finish & Take Quiz"
+    // Mark subpart as completed if we were in a subpart
+    if (activeSubpart) {
+      saveSubpartProgress(activeSubpart.id);
+    }
+    grantQuizAccess();
     navigate('/quiz');
   };
 
@@ -182,9 +276,74 @@ export default function Learn() {
                 </div>
               </TabsContent>
             </Tabs>
+            {/* Subpart / Topic View for admin modules */}
+            {showSubpartView && state.currentModule && subparts.length > 0 && (
+              <div className="animate-fade-in mt-8">
+                <div className="max-w-2xl mx-auto">
+                  <div className="flex items-center gap-3 mb-6">
+                    <button onClick={() => { setShowSubpartView(false); setSubparts([]); }}
+                      className="p-2 rounded-lg hover:bg-muted transition-colors">
+                      <ChevronLeft className="w-5 h-5 text-muted-foreground" />
+                    </button>
+                    <div>
+                      <h2 className="font-display text-xl font-bold text-foreground">{state.currentModule.title}</h2>
+                      <p className="text-sm text-muted-foreground">{subparts.length} topics • Complete each to unlock the next</p>
+                    </div>
+                  </div>
 
-            {state.currentModule && (
-              <div className="flex justify-center animate-scale-in">
+                  <div className="space-y-3">
+                    {subparts.map((sub, idx) => {
+                      const unlocked = isSubpartUnlocked(sub, idx);
+                      const completed = !!subpartProgress[sub.id];
+                      return (
+                        <div key={sub.id}
+                          onClick={() => unlocked && handleSubpartSelect(sub)}
+                          className={cn(
+                            "relative rounded-xl border p-4 transition-all cursor-pointer",
+                            completed ? "border-green-500/30 bg-green-500/5" :
+                            unlocked ? "border-border hover:border-primary hover:shadow-md bg-card" :
+                            "border-border/50 bg-muted/30 cursor-not-allowed opacity-60"
+                          )}>
+                          <div className="flex items-center gap-4">
+                            <div className={cn(
+                              "w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0",
+                              completed ? "bg-green-500 text-white" :
+                              unlocked ? "gradient-primary text-primary-foreground" :
+                              "bg-muted text-muted-foreground"
+                            )}>
+                              {completed ? <CheckCircle className="w-5 h-5" /> : unlocked ? idx + 1 : <Lock className="w-4 h-4" />}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h3 className={cn("font-medium text-sm", unlocked ? "text-foreground" : "text-muted-foreground")}>{sub.title}</h3>
+                              <div className="flex items-center gap-2 mt-1">
+                                {(sub.quizQuestions || []).length > 0 && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-500 font-medium">Quiz</span>
+                                )}
+                                {(sub.codingQuestions || []).length > 0 && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-500 font-medium">Coding</span>
+                                )}
+                                {completed && <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/10 text-green-500 font-medium">Completed</span>}
+                                {!unlocked && <span className="text-[10px] text-muted-foreground">Pass previous topic to unlock</span>}
+                              </div>
+                            </div>
+                            {unlocked && !completed && <Play className="w-4 h-4 text-primary flex-shrink-0" />}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Start Learning button (for modules without subparts, or when subpart is selected) */}
+            {state.currentModule && !showSubpartView && (
+              <div className="flex flex-col items-center gap-3 animate-scale-in mt-6">
+                {activeSubpart && (
+                  <button onClick={handleBackToSubparts} className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors">
+                    <ChevronLeft className="w-4 h-4" /> Back to topics
+                  </button>
+                )}
                 <Button variant="hero" size="xl" onClick={handleStartLearning} className="flex items-center gap-2">
                   <Play className="w-5 h-5" />
                   Start Learning Session
@@ -195,7 +354,29 @@ export default function Learn() {
         ) : (
           <div className="animate-fade-in">
             <div className="grid lg:grid-cols-3 gap-8">
-              <div className="lg:col-span-2">
+              <div className="lg:col-span-2 relative">
+                {/* ATTENTION BLUR OVERLAY */}
+                {engagementState.isTracking && engagementState.modelLoaded && (
+                  !engagementState.faceDetected || engagementState.attentionState === 'distracted' || engagementState.currentScore < ATTENTION_THRESHOLD
+                ) && (
+                  <div className="absolute inset-0 z-30 backdrop-blur-lg bg-background/60 rounded-xl flex flex-col items-center justify-center gap-4 animate-fade-in">
+                    <div className="w-20 h-20 rounded-full bg-destructive/10 flex items-center justify-center">
+                      <PauseCircle className="w-10 h-10 text-destructive" />
+                    </div>
+                    <h3 className="font-display text-xl font-bold text-foreground">Content Paused</h3>
+                    <p className="text-sm text-muted-foreground text-center max-w-xs">
+                      {!engagementState.faceDetected
+                        ? 'Your face is not detected. Please return to the camera frame.'
+                        : engagementState.currentScore < ATTENTION_THRESHOLD
+                        ? `Your engagement score is ${engagementState.currentScore}% (minimum ${ATTENTION_THRESHOLD}%). Please focus on the screen.`
+                        : 'You appear distracted. Please look at the screen to continue.'}
+                    </p>
+                    <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-destructive/10 text-destructive text-sm font-medium">
+                      <AlertCircle className="w-4 h-4" />
+                      Video & content will resume when attention is restored
+                    </div>
+                  </div>
+                )}
                 <div className="bg-card rounded-xl border border-border shadow-soft overflow-hidden">
                   <div className="gradient-primary p-6">
                     <h1 className="font-display text-2xl font-bold text-primary-foreground mb-2">
@@ -203,6 +384,50 @@ export default function Learn() {
                     </h1>
                     <p className="text-primary-foreground/80 text-sm">{state.currentModule?.description}</p>
                   </div>
+
+                  {/* VIDEO PLAYER SECTION */}
+                  {((state.currentModule as any)?.videoUrl || (state.currentModule as any)?.youtubeUrl) && (
+                    <div className="border-b border-border p-4">
+                      <h3 className="font-display font-semibold text-sm text-foreground mb-3 flex items-center gap-2">
+                        <VideoIcon className="w-4 h-4 text-primary" /> Video Lecture
+                      </h3>
+                      {(() => {
+                        const ytId = getYouTubeId((state.currentModule as any)?.youtubeUrl || '');
+                        const videoUrl = (state.currentModule as any)?.videoUrl || '';
+                        const isDistracted = engagementState.isTracking && engagementState.modelLoaded && (
+                          !engagementState.faceDetected || engagementState.attentionState === 'distracted' || engagementState.currentScore < ATTENTION_THRESHOLD
+                        );
+                        if (ytId) {
+                          return (
+                            <div className="relative aspect-video rounded-lg overflow-hidden bg-black">
+                              <iframe
+                                src={`https://www.youtube.com/embed/${ytId}?autoplay=0&rel=0`}
+                                title="Video Lecture"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowFullScreen
+                                className="w-full h-full"
+                              />
+                              {isDistracted && <div className="absolute inset-0 bg-black/80 z-10" />}
+                            </div>
+                          );
+                        }
+                        if (videoUrl) {
+                          return (
+                            <div className="relative aspect-video rounded-lg overflow-hidden bg-black">
+                              <video
+                                src={videoUrl}
+                                controls
+                                className="w-full h-full"
+                                id="module-video-player"
+                              />
+                              {isDistracted && <div className="absolute inset-0 bg-black/80 z-10" />}
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()}
+                    </div>
+                  )}
 
                   <div className="p-6">
                     <div className="prose prose-slate max-w-none">
