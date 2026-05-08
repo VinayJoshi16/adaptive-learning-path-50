@@ -1,11 +1,11 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ModuleCard } from '@/components/ui/module-card';
 import { ScoreGauge } from '@/components/ui/score-gauge';
 import { FaceLandmarkOverlay } from '@/components/FaceLandmarkOverlay';
 import { EngagementIntervention } from '@/components/EngagementIntervention';
-import { modules, codingModules, getModuleByOrder } from '@/lib/content-data';
+import { modules, codingModules, getModuleByOrder, type Module } from '@/lib/content-data';
 import { PASSING_SCORE } from '@/lib/recommendation-engine';
 import { useLearning } from '@/contexts/LearningContext';
 import { useModuleProgress } from '@/contexts/ModuleProgressContext';
@@ -21,6 +21,15 @@ export default function Learn() {
   const navigate = useNavigate();
   const { state, selectModule, startLearning, finishLearning, grantQuizAccess } = useLearning();
   const { progress, getModuleProgress } = useModuleProgress();
+  const [adminModules, setAdminModules] = useState<Module[]>([]);
+
+  useEffect(() => {
+    const API = import.meta.env.VITE_API_URL || '/api';
+    fetch(`${API}/admin/modules/public`)
+      .then(r => r.json())
+      .then(d => setAdminModules(d.modules || []))
+      .catch(() => {});
+  }, []);
   const { 
     state: engagementState, videoRef, canvasRef, startTracking, stopTracking 
   } = useEngagementTracker();
@@ -51,9 +60,10 @@ export default function Learn() {
   };
 
   const handleModuleSelect = (moduleId: string) => {
-    const module = modules.find(m => m.id === moduleId) || codingModules.find(m => m.id === moduleId);
+    const module = modules.find(m => m.id === moduleId) || codingModules.find(m => m.id === moduleId) || adminModules.find(m => m.id === moduleId);
     const isCoding = codingModules.some(m => m.id === moduleId);
-    if (module && isModuleUnlocked(module.order, isCoding)) {
+    const isAdmin = adminModules.some(m => m.id === moduleId);
+    if (module && (isAdmin || isModuleUnlocked(module.order, isCoding))) {
       selectModule(moduleId);
     }
   };
@@ -90,9 +100,10 @@ export default function Learn() {
 
             <Tabs defaultValue="general" className="w-full mb-8">
               <div className="flex justify-center mb-8">
-                <TabsList className="grid w-[400px] grid-cols-2">
+                <TabsList className={`grid ${adminModules.length > 0 ? 'w-[600px] grid-cols-3' : 'w-[400px] grid-cols-2'}`}>
                   <TabsTrigger value="general">General Learning</TabsTrigger>
                   <TabsTrigger value="coding">Coding Modules</TabsTrigger>
+                  {adminModules.length > 0 && <TabsTrigger value="admin">Admin Modules</TabsTrigger>}
                 </TabsList>
               </div>
               
@@ -153,6 +164,27 @@ export default function Learn() {
                   })}
                 </div>
               </TabsContent>
+
+              {adminModules.length > 0 && (
+                <TabsContent value="admin">
+                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {adminModules.map(module => {
+                      const moduleProgress = getModuleProgress(module.id);
+                      return (
+                        <div key={module.id} className="relative">
+                          <ModuleCard
+                            module={module}
+                            onSelect={handleModuleSelect}
+                            selected={state.currentModule?.id === module.id}
+                            completed={moduleProgress?.passed}
+                            bestScore={moduleProgress?.bestScore}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </TabsContent>
+              )}
             </Tabs>
 
             {state.currentModule && (

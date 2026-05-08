@@ -287,6 +287,17 @@ export default function Auth() {
             </CardContent>
           </Tabs>
         </Card>
+
+        {/* Admin Login Link */}
+        <div className="text-center mt-4">
+          <button
+            onClick={() => navigate('/admin/login')}
+            className="text-xs text-muted-foreground hover:text-primary transition-colors inline-flex items-center gap-1.5"
+          >
+            <Lock className="w-3 h-3" />
+            Login as Admin
+          </button>
+        </div>
       </div>
     </div>
   );
