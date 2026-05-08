@@ -70,59 +70,65 @@ export default function CodingPractice() {
   useEffect(() => {
     if (!securityActive) return;
 
+    let lastViolationTime = 0;
+    const DEBOUNCE_MS = 2000; // prevent rapid-fire violations
+
+    const addViolation = (reason: string) => {
+      const now = Date.now();
+      if (now - lastViolationTime < DEBOUNCE_MS) return;
+      lastViolationTime = now;
+
+      setViolations(v => {
+        const n = v + 1;
+        toast.error(`⚠️ ${reason} — Violation ${n}/${MAX_VIOLATIONS}`);
+        // Log to localStorage
+        const logs = JSON.parse(localStorage.getItem('violation_log') || '[]');
+        logs.push({ reason, time: new Date().toISOString(), count: n });
+        localStorage.setItem('violation_log', JSON.stringify(logs));
+        if (n >= MAX_VIOLATIONS) {
+          toast.error('Maximum violations reached. Session auto-submitted.');
+          setTimeout(() => {
+            setSelectedQuestion(null);
+            setSecurityActive(false);
+            stopTracking();
+          }, 500);
+        }
+        return n;
+      });
+    };
+
     const onVisibility = () => {
-      if (document.hidden) {
-        setViolations(v => {
-          const n = v + 1;
-          toast.error(`⚠️ Tab switch detected! Violation ${n}/${MAX_VIOLATIONS}`);
-          if (n >= MAX_VIOLATIONS) {
-            toast.error('Maximum violations reached. Session auto-submitted.');
-            handleAutoSubmit();
-          }
-          return n;
-        });
-      }
+      if (document.hidden) addViolation('Tab switch detected');
     };
 
     const onCopy = (e: ClipboardEvent) => {
       e.preventDefault();
-      setViolations(v => {
-        const n = v + 1;
-        toast.error(`⚠️ Copy/Paste blocked! Violation ${n}/${MAX_VIOLATIONS}`);
-        return n;
-      });
+      addViolation('Copy/Paste blocked');
     };
 
     const onKeyDown = (e: KeyboardEvent) => {
-      // Block Ctrl+C, Ctrl+V, Ctrl+U, F12
-      if ((e.ctrlKey && ['c', 'v', 'u'].includes(e.key.toLowerCase())) || e.key === 'F12') {
+      if (e.key === 'F12') {
         e.preventDefault();
-        toast.warning('This shortcut is restricted during coding practice.');
+        addViolation('DevTools shortcut blocked');
       }
-    };
-
-    const onBlur = () => {
-      setViolations(v => {
-        const n = v + 1;
-        toast.warning(`⚠️ Window focus lost! Violation ${n}/${MAX_VIOLATIONS}`);
-        return n;
-      });
+      if (e.ctrlKey && ['u'].includes(e.key.toLowerCase())) {
+        e.preventDefault();
+        addViolation('View source blocked');
+      }
     };
 
     document.addEventListener('visibilitychange', onVisibility);
     document.addEventListener('copy', onCopy);
     document.addEventListener('paste', onCopy);
     document.addEventListener('keydown', onKeyDown);
-    window.addEventListener('blur', onBlur);
 
     return () => {
       document.removeEventListener('visibilitychange', onVisibility);
       document.removeEventListener('copy', onCopy);
       document.removeEventListener('paste', onCopy);
       document.removeEventListener('keydown', onKeyDown);
-      window.removeEventListener('blur', onBlur);
     };
-  }, [securityActive]);
+  }, [securityActive, stopTracking]);
 
   const handleAutoSubmit = () => {
     toast.error('Coding session auto-submitted due to violations.');
