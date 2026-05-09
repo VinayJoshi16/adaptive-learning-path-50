@@ -36,7 +36,13 @@ export default async function handler(req, res) {
       user: {
         id: user._id.toString(),
         email: user.email,
-        user_metadata: { display_name: user.display_name },
+        user_metadata: {
+          display_name: user.display_name,
+          profilePhotoBase64: user.profilePhotoBase64 || null,
+          engagementScore: user.engagementScore || 100,
+          proctoringViolations: user.proctoringViolations || [],
+          codingPerformance: user.codingPerformance || {},
+        },
       },
     });
   } catch (err) {

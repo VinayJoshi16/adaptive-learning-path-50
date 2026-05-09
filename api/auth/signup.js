@@ -9,7 +9,7 @@ export default async function handler(req, res) {
   try {
     const db = await getDB();
     const users = db.collection('users');
-    const { email, password, displayName } = req.body || {};
+    const { email, password, displayName, profilePhotoBase64 } = req.body || {};
 
     if (!email || !password || !displayName) {
       return res.status(400).json({ error: 'Email, password, and display name are required' });
@@ -25,6 +25,11 @@ export default async function handler(req, res) {
       email: email.toLowerCase(),
       password: hashedPassword,
       display_name: displayName,
+      profilePhotoBase64: profilePhotoBase64 || null,
+      moduleProgress: {},
+      codingPerformance: {},
+      engagementScore: 100,
+      proctoringViolations: [],
       created_at: new Date(),
     });
 
@@ -40,7 +45,13 @@ export default async function handler(req, res) {
       user: {
         id: userId,
         email: email.toLowerCase(),
-        user_metadata: { display_name: displayName },
+        user_metadata: {
+          display_name: displayName,
+          profilePhotoBase64: profilePhotoBase64 || null,
+          engagementScore: 100,
+          proctoringViolations: [],
+          codingPerformance: {},
+        },
       },
     });
   } catch (err) {
