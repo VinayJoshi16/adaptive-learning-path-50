@@ -9,15 +9,29 @@ import { ModuleProgressProvider } from "@/contexts/ModuleProgressContext";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminRoute } from "@/components/AdminRoute";
+import { lazy, Suspense } from "react";
 import Home from "./pages/Home";
 import Auth from "./pages/Auth";
-import Learn from "./pages/Learn";
-import Quiz from "./pages/Quiz";
-import Dashboard from "./pages/Dashboard";
-import CodingPractice from "./pages/CodingPractice";
-import AdminLogin from "./pages/AdminLogin";
-import AdminPanel from "./pages/AdminPanel";
 import NotFound from "./pages/NotFound";
+
+// Lazy-load heavy pages for code splitting
+const Learn = lazy(() => import("./pages/Learn"));
+const Quiz = lazy(() => import("./pages/Quiz"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const CodingPractice = lazy(() => import("./pages/CodingPractice"));
+const AdminLogin = lazy(() => import("./pages/AdminLogin"));
+const AdminPanel = lazy(() => import("./pages/AdminPanel"));
+
+function PageLoader() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="flex flex-col items-center gap-3">
+        <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+        <span className="text-muted-foreground text-sm">Loading…</span>
+      </div>
+    </div>
+  );
+}
 
 const queryClient = new QueryClient();
 
@@ -30,6 +44,7 @@ const App = () => (
             <Toaster />
             <Sonner />
             <BrowserRouter>
+              <Suspense fallback={<PageLoader />}>
               <Routes>
                 {/* Admin routes — outside AppLayout (own layout) */}
                 <Route path="/admin/login" element={<AdminLogin />} />
@@ -70,6 +85,7 @@ const App = () => (
                   </AppLayout>
                 } />
               </Routes>
+              </Suspense>
             </BrowserRouter>
           </ModuleProgressProvider>
         </LearningProvider>
