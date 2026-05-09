@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { codingModules, modules as allModules } from '@/lib/content-data';
 import { PASSING_SCORE } from '@/lib/recommendation-engine';
 import { getSessions } from '@/lib/session-store';
 
@@ -67,14 +68,11 @@ export function ModuleProgressProvider({ children }: { children: React.ReactNode
   const isModuleUnlocked = useCallback(
     (moduleId: string, moduleOrder: number, isCoding: boolean = false) => {
       if (moduleOrder === 1) return true;
-      import('@/lib/content-data').then(({ modules: allModules, codingModules }) => {
-        const targetModules = isCoding ? codingModules : allModules;
-        const previousModule = targetModules.find((m) => m.order === moduleOrder - 1);
-        if (!previousModule) return true;
-        const prevProgress = progress.get(previousModule.id);
-        return prevProgress?.passed ?? false;
-      });
-      return moduleOrder === 1;
+      const targetModules = isCoding ? codingModules : allModules;
+      const previousModule = targetModules.find((m) => m.order === moduleOrder - 1);
+      if (!previousModule) return true;
+      const prevProgress = progress.get(previousModule.id);
+      return prevProgress?.passed ?? false;
     },
     [progress]
   );
