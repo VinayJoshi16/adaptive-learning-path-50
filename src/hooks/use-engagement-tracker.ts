@@ -152,6 +152,10 @@ export function useEngagementTracker() {
     }
   }, [detectOnce]);
 
+  // Use a ref so stopTracking always returns the latest score, not a stale closure value
+  const currentScoreRef = useRef(0);
+  currentScoreRef.current = state.currentScore;
+
   const stopTracking = useCallback(() => {
     isTrackingRef.current = false;
 
@@ -165,7 +169,7 @@ export function useEngagementTracker() {
       intervalRef.current = null;
     }
 
-    const finalScore = state.currentScore;
+    const finalScore = currentScoreRef.current;
 
     setState(prev => ({
       ...prev,
@@ -178,7 +182,7 @@ export function useEngagementTracker() {
     attentiveFramesRef.current = 0;
 
     return finalScore;
-  }, [state.currentScore]);
+  }, []);
 
   const resetTracking = useCallback(() => {
     frameCountRef.current = 0;

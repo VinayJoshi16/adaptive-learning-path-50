@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 
 interface ProctoringState {
@@ -17,6 +17,10 @@ export function useProctoring(
     violations: [],
   });
 
+  // Use a ref for the callback so event listeners don't get re-registered every render
+  const onAutoSubmitRef = useRef(onAutoSubmit);
+  onAutoSubmitRef.current = onAutoSubmit;
+
   const recordViolation = useCallback((reason: string) => {
     setState(prev => {
       const newWarnings = prev.warnings + 1;
@@ -30,29 +34,34 @@ export function useProctoring(
         toast.error('Maximum warnings reached. Auto-submitting test.', {
           duration: 10000,
         });
-        if (onAutoSubmit) {
-          onAutoSubmit();
-        }
+        // Use setTimeout so the state update completes before auto-submit runs
+        setTimeout(() => onAutoSubmitRef.current?.(), 0);
         return { warnings: newWarnings, isBlocked: true, violations: newViolations };
       }
       return { warnings: newWarnings, isBlocked: prev.isBlocked, violations: newViolations };
     });
-  }, [maxWarnings, onAutoSubmit]);
+  }, [maxWarnings]);
 
   useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        recordViolation('Tab switched or browser minimized');
-      }
+    let lastViolationTime = 0;
+    const DEBOUNCE_MS = 1500; // prevent double-fire from visibilitychange + blur
+
+    const debouncedViolation = (reason: string) => {
+      const now = Date.now();
+      if (now - lastViolationTime < DEBOUNCE_MS) return;
+      lastViolationTime = now;
+      recordViolation(reason);
     };
 
-    const handleBlur = () => {
-      recordViolation('Window lost focus');
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        debouncedViolation('Tab switched or browser minimized');
+      }
     };
 
     const handleCopyPaste = (e: ClipboardEvent) => {
       e.preventDefault();
-      recordViolation('Copy/Paste is restricted during assessments');
+      debouncedViolation('Copy/Paste is restricted during assessments');
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -63,19 +72,17 @@ export function useProctoring(
         (e.metaKey && (e.key === 'c' || e.key === 'v' || e.key === 'x'))
       ) {
         e.preventDefault();
-        recordViolation('Keyboard shortcut restricted');
+        debouncedViolation('Keyboard shortcut restricted');
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('blur', handleBlur);
     document.addEventListener('copy', handleCopyPaste);
     document.addEventListener('paste', handleCopyPaste);
     document.addEventListener('keydown', handleKeyDown);
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('blur', handleBlur);
       document.removeEventListener('copy', handleCopyPaste);
       document.removeEventListener('paste', handleCopyPaste);
       document.removeEventListener('keydown', handleKeyDown);

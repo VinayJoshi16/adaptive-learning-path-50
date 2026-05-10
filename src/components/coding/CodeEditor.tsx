@@ -43,7 +43,8 @@ export function CodeEditor({ initialCode = '', defaultLanguage = 'python', onRun
     setOutput('Running code...');
     
     try {
-      const response = await fetch('/api/code/execute', {
+      const API_BASE = import.meta.env.VITE_API_URL || '/api';
+      const response = await fetch(`${API_BASE}/code/execute`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { CodeEditor } from '@/components/coding/CodeEditor';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -66,6 +66,10 @@ export default function CodingPractice() {
     });
   }, []);
 
+  // Ref to avoid re-registering security listeners when stopTracking identity changes
+  const stopTrackingRef = useRef(stopTracking);
+  stopTrackingRef.current = stopTracking;
+
   // Security: detect tab switch, copy-paste, minimize
   useEffect(() => {
     if (!securityActive) return;
@@ -90,7 +94,7 @@ export default function CodingPractice() {
           setTimeout(() => {
             setSelectedQuestion(null);
             setSecurityActive(false);
-            stopTracking();
+            stopTrackingRef.current();
           }, 500);
         }
         return n;
@@ -128,7 +132,7 @@ export default function CodingPractice() {
       document.removeEventListener('paste', onCopy);
       document.removeEventListener('keydown', onKeyDown);
     };
-  }, [securityActive, stopTracking]);
+  }, [securityActive]);
 
   const handleAutoSubmit = () => {
     toast.error('Coding session auto-submitted due to violations.');

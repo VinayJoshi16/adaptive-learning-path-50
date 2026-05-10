@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ScoreGauge } from '@/components/ui/score-gauge';
@@ -42,10 +42,14 @@ export default function Quiz() {
   const { recordQuizResult, getModuleProgress } = useModuleProgress();
 
   // Block access unless user came from "Finish & Take Quiz" on a module
+  const hasRedirected = useRef(false);
   useEffect(() => {
     if (!state.quizAccessGranted || !state.currentModule) {
-      navigate('/learn', { replace: true });
-      toast.error('Complete a module and click "Finish & Take Quiz" to access the quiz.');
+      if (!hasRedirected.current) {
+        hasRedirected.current = true;
+        toast.error('Complete a module and click "Finish & Take Quiz" to access the quiz.');
+        navigate('/learn', { replace: true });
+      }
     }
   }, [state.quizAccessGranted, state.currentModule, navigate]);
 
