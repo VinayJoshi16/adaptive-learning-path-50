@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { ObjectId } from 'mongodb';
-import { getDB } from '../_lib/db.js';
+import { getDB } from './_lib/db.js';
 
 function getUserId(req) {
   const authHeader = req.headers.authorization;
